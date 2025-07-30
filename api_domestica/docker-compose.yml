@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:17.5
+    container_name: sucu_server
+    restart: "always"
+    environment:
+
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pg_data_volume:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT}:${DB_PORT}"
+
+  api:
+    build: .
+    container_name: fastapi_server
+
+    restart: "no"
+    ports:
+      - "${API_PORT}:${API_PORT}"
+    environment:
+
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD} 
+    volumes:
+
+      - .:/app  
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port ${API_PORT}
+      --reload 
+    depends_on:
+      - db
+
+volumes:
+  pg_data_volume: 

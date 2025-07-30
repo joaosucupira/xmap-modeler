@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:17.5
+    container_name: sucu_server
+    restart: "always"
+    environment:
+      POSTGRES_DB: sucu_db
+      POSTGRES_USER: sucupira
+      POSTGRES_PASSWORD: 12345
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data_volume:/var/lib/postgresql/data
+
+  api:
+    build: ./api_domestica
+    container_name: fastapi_server
+    restart: "no"
+    volumes: 
+      - ./api_domestica:/app
+    env_file:
+      - ./api_domestica/.env
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    command: >
+      uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload 
+
+  interface:
+    build: ./interface_domestica
+    container_name: react_app_dev
+    restart: "no"
+    volumes:
+      - ./interface_domestica:/app
+      - /app/node_modules
+    environment:
+      REACT_APP_API_URL: localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pg_data_volume:
