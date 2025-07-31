@@ -3,7 +3,7 @@ version: '3.8'
 services:
   db:
     image: postgres:17.5
-    container_name: sucu_server
+    container_name: xmap_server
     restart: "always"
     environment:
       POSTGRES_DB: sucu_db
@@ -16,7 +16,7 @@ services:
 
   api:
     build: ./api_domestica
-    container_name: fastapi_server
+    container_name: xapi_server
     restart: "no"
     volumes: 
       - ./api_domestica:/app
@@ -31,7 +31,7 @@ services:
 
   interface:
     build: ./interface_domestica
-    container_name: react_app_dev
+    container_name: xmap_react_app_dev
     restart: "no"
     volumes:
       - ./interface_domestica:/app

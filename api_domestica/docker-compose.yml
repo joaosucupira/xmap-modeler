@@ -3,7 +3,7 @@ version: '3.8'
 services:
   db:
     image: postgres:17.5
-    container_name: sucu_server
+    container_name: xmap_server
     restart: "always"
     environment:
 
@@ -15,7 +15,7 @@ services:
 
   api:
     build: .
-    container_name: fastapi_server
+    container_name: xapi_server
 
     restart: "no"
     ports:
