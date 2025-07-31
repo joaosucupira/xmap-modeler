@@ -7,7 +7,9 @@ app = FastAPI()
 
 origins = [
     'http://localhost:3000',
-    'http://localhost'
+    'http://localhost',
+    'http://127.0.0.1',
+    'http://127.0.0.1:3000',
 
 ]
 
@@ -24,7 +26,7 @@ app.add_middleware(
 
 @app.get("/")
 async def read_root():
-    return {"message": "API ligada!"}
+    return {"message": "API UHU!"}
 
 @app.get("/usuarios/")
 async def get_users_data():

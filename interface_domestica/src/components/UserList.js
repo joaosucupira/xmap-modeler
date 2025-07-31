@@ -10,11 +10,13 @@ function UserList() {
 
         const fetchUsuarios = async () => {
             const apiUrl = 'http://localhost:8000';
-            console.log(`${apiUrl}/usuarios/`)
+            // console.log(`${apiUrl}/usuarios/`)
 
+            // const response = await axios.get(`${apiUrl}`);
             const response = await axios.get(`${apiUrl}/usuarios/`);
             setUsuarios(response.data.usuarios);
             const response2 = await axios.get(`${apiUrl}/items/`);
+            // const response2 = await axios.get(`${apiUrl}`);
             setItems(response2.data.items);
         }
 
@@ -23,7 +25,7 @@ function UserList() {
 
     return (
         <div style={{display: 'flex', flexDirection: 'row   ', alignItems: 'center'}}>
-            <h1>listar usuarios</h1>
+            <h1>listar USUARIOS</h1>
             <ul>
                 {usuarios.map(usuario => (
                     <li key={usuario.id}>
