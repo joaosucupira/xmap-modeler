@@ -1,19 +1,26 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+
 import './App.css';
 import Home from './components/Home.js'
 import Login from './components/Login.js'
+import SignUp from './components/SignUp.js';
+import Recuperar from './components/Recuperar.js';
+import { display, flex } from '@mui/system';
 
 function App() {
   return (
     <Router>
       <nav>
-        <ul>
+        <ul className='page_bar'>
           <li>
             <Link to="/">Home</Link>
           </li>
           <li>
             <Link to="/login">Login</Link>
+          </li>
+          <li>
+            <Link to="/cadastro">Cadastro</Link>
           </li>
         </ul>
       </nav>
@@ -21,6 +28,8 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
+        <Route path='/cadastro' element={<SignUp/>}/>
+        <Route path='/recuperar' element={<Recuperar/>}/>
 
       </Routes>
     </Router>

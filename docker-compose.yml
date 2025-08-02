@@ -37,7 +37,8 @@ services:
       - ./interface_domestica:/app
       - /app/node_modules
     environment:
-      REACT_APP_API_URL: http://localhost:8000
+      - REACT_APP_API_URL=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true  # <--- Adicione esta linha
     ports:
       - "3000:3000"
     depends_on:
