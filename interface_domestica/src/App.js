@@ -14,7 +14,7 @@ function App() {
       <nav>
         <ul className='page_bar'>
           <li>
-            <Link to="/">Home</Link>
+            <Link to="/home">Home</Link>
           </li>
           <li>
             <Link to="/login">Login</Link>
@@ -26,7 +26,7 @@ function App() {
       </nav>
 
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/home" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path='/cadastro' element={<SignUp/>}/>
         <Route path='/recuperar' element={<Recuperar/>}/>

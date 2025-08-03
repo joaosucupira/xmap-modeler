@@ -1,56 +1,46 @@
 import * as React from 'react';
-import Button from '@mui/material/Button';
-import Menu from '@mui/material/Menu';
-import MenuItem from '@mui/material/MenuItem';
+import { CssVarsProvider } from '@mui/joy/styles';
+import Sheet from '@mui/joy/Sheet';
+import CssBaseline from '@mui/joy/CssBaseline';
+import Typography from '@mui/joy/Typography';
+import Link from '@mui/joy/Link';
+import ModeToggle from './ModeToggle';
+import NavMenu from './NavMenu.js';
+import './components.css';
 
-
-
-function Home() {
-    const [anchorEl, setAnchorEl] = React.useState(null);
-    const open = Boolean(anchorEl);
-    const handleClick = (event) => {
-        setAnchorEl(event.currentTarget);
-    };
-    const handleClose = () => {
-        setAnchorEl(null);
-    };
+function Home(props) {
 
     return(
         <>
-        <div>
-            <h1>Home</h1>
-            <Button variant="contained">Hello world</Button>
-
-
-        </div>
-        <div>
-        <Button
-            id="basic-button"
-            aria-controls={open ? 'basic-menu' : undefined}
-            aria-haspopup="true"
-            aria-expanded={open ? 'true' : undefined}
-            onClick={handleClick}
-        >
-            Dashboard
-        </Button>
-        <Menu
-            id="basic-menu"
-            anchorEl={anchorEl}
-            open={open}
-            onClose={handleClose}
-            slotProps={{
-            list: {
-                'aria-labelledby': 'basic-button',
-            },
-            }}
-        >
-            <MenuItem onClick={handleClose}>Profile</MenuItem>
-            <MenuItem onClick={handleClose}>My account</MenuItem>
-            <MenuItem onClick={handleClose}>Logout</MenuItem>
-        </Menu>
-        </div>
+        <main>
+            <CssVarsProvider {...props}>
+                <ModeToggle/>
+                <CssBaseline />
+                <Sheet
+                    sx={{
+                        width: 400,
+                        mx: 'auto', // margin left & right
+                        my: 4, // margin top & bottom
+                        py: 3, // padding top & bottom
+                        px: 4, // padding left & right
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 2,
+                        borderRadius: 'sm',
+                        boxShadow: 'md',
+                    }}
+                    variant='outlined'
+                >
+                <div className='navbar'>
+                    <NavMenu/>
+                    <Typography level="h4" component="h1">
+                    <b>X Home</b>
+                    </Typography>
+                </div>
+                </Sheet>
+            </CssVarsProvider>
+        </main>
         </>
-
     );
 }
 

@@ -3,10 +3,6 @@ import { CssVarsProvider } from '@mui/joy/styles';
 import Sheet from '@mui/joy/Sheet';
 import CssBaseline from '@mui/joy/CssBaseline';
 import Typography from '@mui/joy/Typography';
-import FormControl from '@mui/joy/FormControl';
-import FormLabel from '@mui/joy/FormLabel';
-import Input from '@mui/joy/Input';
-import Button from '@mui/joy/Button';
 import Link from '@mui/joy/Link';
 import ModeToggle from './ModeToggle';
 
@@ -39,11 +35,7 @@ export default function Recuperar(props) {
                     <Link href="/login">Retornar a login</Link>
                 </div>
                 </Sheet>
-
-
-
             </CssVarsProvider>
-
         </main>
     </>);
 }
