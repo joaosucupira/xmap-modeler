@@ -5,11 +5,18 @@ import CssBaseline from '@mui/joy/CssBaseline';
 import Typography from '@mui/joy/Typography';
 import Link from '@mui/joy/Link';
 import ModeToggle from './ModeToggle';
+import NavMenu from './NavMenu.js';
+import XGrid from './XGrid.js'
 
-export default function Recuperar(props) {
-    return(<>
+import './components.css';
+
+function XMenu(props) {
+
+    return(
+        <>
         <main>
             <CssVarsProvider {...props}>
+ 
                 <CssBaseline />
                 <Sheet
                     sx={{
@@ -26,15 +33,19 @@ export default function Recuperar(props) {
                     }}
                     variant='outlined'
                 >
-                <div>
+                <div className='navbar'>
+                    <NavMenu/>
                     <Typography level="h4" component="h1">
-                    <b>Enviamos um link de recuperação para seu correio eletrônico cadastrado</b>
+                    <b>X Menu</b>
                     </Typography>
-                    <Typography level="body-sm">Matenha a calma e verifique também sua caixa de spam</Typography>
-                    <Link href="/login">Retornar a login</Link>
                 </div>
                 </Sheet>
+            
             </CssVarsProvider>
         </main>
-    </>);
+
+        </>
+    );
 }
+
+export default XMenu;

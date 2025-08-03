@@ -28,7 +28,6 @@ export default function SignUp(props) {
   return (
     <main>
       <CssVarsProvider {...props}>
-        <ModeToggle />
         <CssBaseline />
         <Sheet
           sx={{

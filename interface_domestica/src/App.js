@@ -6,13 +6,21 @@ import Home from './components/Home.js'
 import Login from './components/Login.js'
 import SignUp from './components/SignUp.js';
 import Recuperar from './components/Recuperar.js';
+import { CssVarsProvider } from '@mui/joy/styles';
 import { display, flex } from '@mui/system';
+import ModeToggle from './components/ModeToggle.js';
 
-function App() {
-  return (
+function App(props) {
+  return (               
+
     <Router>
       <nav>
         <ul className='page_bar'>
+          <li>
+            <CssVarsProvider {...props}>
+              <ModeToggle />
+            </CssVarsProvider>
+          </li>
           <li>
             <Link to="/home">Home</Link>
           </li>
