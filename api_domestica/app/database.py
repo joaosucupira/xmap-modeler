@@ -25,6 +25,9 @@ class Usuario(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     nome = Column(String(100), index=True)
+    email=Column(String(100),unique=True,index=True)
+    senha_hash = Column(String)
+
 
 class Item(Base):
     __tablename__ = "items"
