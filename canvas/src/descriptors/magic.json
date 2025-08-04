@@ -1,0 +1,29 @@
+{
+  "name": "Magic",
+  "prefix": "magic",
+  "uri": "http://magic",
+  "xml": {
+    "tagAlias": "lowerCase"
+  },
+  "associations": [],
+  "types": [
+    {
+      "name": "BewitchedStartEvent",
+      "extends": [
+        "bpmn:BusinessRuleTask"
+      ],
+      "properties": [
+        {
+          "name": "incantation",
+          "isAttr": true,
+          "type": "String"
+        },
+        {
+          "name": "charm",
+          "isAttr": true,
+          "type": "String"
+        }
+      ]
+    }
+  ]
+}

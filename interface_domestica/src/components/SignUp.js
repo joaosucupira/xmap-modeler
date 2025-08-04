@@ -31,7 +31,7 @@ export default function SignUp(props) {
         <CssBaseline />
         <Sheet
           sx={{
-            width: 500,
+            width: 600,
             mx: 'auto', // margin left & right
             my: 4, // margin top & bottom
             py: 3, // padding top & bottom

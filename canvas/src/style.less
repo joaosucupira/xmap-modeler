@@ -1,0 +1,222 @@
+// --- Paleta de Cores Vibrantes ---
+// Sinta-se à vontade para alterar estas cores!
+@cor-primaria: #007bff;      // Um azul vibrante para botões e links
+@cor-destaque: #17a2b8;     // Um verde-água para botões ativos e destaques
+@cor-fundo-geral: #f8f9fa;   // Um cinza muito claro para o fundo
+@cor-fundo-painel: #ffffff; // Branco para o painel
+@cor-texto: #495057;         // Um cinza escuro para textos, mais suave que o preto
+@cor-borda: #dee2e6;        // Uma borda suave
+@cor-erro: #dc3545;          // Vermelho para mensagens de erro
+
+// --- Fontes ---
+@fonte-principal: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+
+// --- Estilos Globais ---
+* {
+  box-sizing: border-box;
+}
+
+body,
+html {
+  font-family: @fonte-principal; // ALTERADO: Nova fonte
+  font-size: 14px;              // AUMENTADO: Para melhor legibilidade
+  height: 100%;
+  max-height: 100%;
+  padding: 0;
+  margin: 0;
+  background-color: @cor-fundo-geral; // NOVO: Cor de fundo suave
+  color: @cor-texto;                  // NOVO: Cor de texto padrão
+}
+
+a:link {
+  text-decoration: none;
+}
+
+// --- Estrutura Principal ---
+.content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+
+  > .message {
+    width: 100%;
+    height: 100%;
+    text-align: center;
+    display: table;
+    font-size: 18px;          // AUMENTADO
+    color: darken(@cor-texto, 10%); // ALTERADO
+
+    .note {
+      vertical-align: middle;
+      text-align: center;
+      display: table-cell;
+    }
+
+    .error {
+      .details {
+        max-width: 500px;
+        font-size: 14px;
+        margin: 20px auto;
+        text-align: left;
+      }
+
+      pre {
+        border: solid 1px @cor-erro;
+        background: lighten(@cor-erro, 35%);
+        padding: 15px;
+        border-radius: 8px; // NOVO: Cantos arredondados
+      }
+    }
+  }
+  &:not(.with-error) .error,
+  &.with-error .intro,
+  &.with-diagram .intro {
+    display: none;
+  }
+
+  .canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+
+  .canvas,
+  &.with-error .canvas {
+    visibility: hidden;
+  }
+
+  &.with-diagram .canvas {
+    visibility: visible;
+  }
+}
+
+// --- BOTÕES (Grandes Melhorias) ---
+.buttons {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  z-index: 20; // NOVO: Garantir que fiquem acima de outros elementos
+
+  > li {
+    display: inline-block;
+    margin-right: 10px;
+
+    > a {
+      // ESTILO COMPLETAMENTE NOVO
+      background: @cor-primaria;
+      color: white;
+      font-weight: 500;
+      border: none;
+      display: inline-block;
+      padding: 10px 18px;
+      border-radius: 8px; // Cantos arredondados
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease-out; // Transição suave
+
+      // Efeito ao passar o mouse
+      &:hover {
+        transform: translateY(-2px); // Leve animação para cima
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+        background: lighten(@cor-primaria, 5%);
+      }
+    }
+  }
+
+  // Removemos a opacidade e controlamos o estado ativo pela cor
+  a {
+    opacity: 1.0;
+  }
+
+  a.active {
+    background: @cor-destaque;
+    color: white;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); // Sombra mais sutil
+    transform: translateY(-1px);
+  }
+}
+
+// --- PAINEL DE PROPRIEDADES (Grandes Melhorias) ---
+#js-properties-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 300px; // AUMENTADO: Mais espaço
+  z-index: 10;
+  border-left: 1px solid @cor-borda;
+  overflow: auto;
+  background: @cor-fundo-painel; // NOVO: Fundo branco
+  box-shadow: -5px 0 20px rgba(0, 0, 0, 0.07); // NOVO: Sombra para destacar
+
+  &:empty {
+    display: none;
+  }
+
+  > .djs-properties-panel {
+    padding-bottom: 70px;
+    min-height:100%;
+  }
+}
+
+// ----------------------------------------------------
+// NOVO: Cores customizadas para Elementos BPMN (v2)
+// ----------------------------------------------------
+
+// Paleta de Cores Sóbrias
+@cor-fundo-atividade: #faee7e;      // Azul muito claro
+@cor-borda-atividade: #a9bcf5;      // Borda azul um pouco mais forte
+
+@cor-fundo-evento-inicio: #ffd000;  // Verde muito claro
+@cor-borda-evento-inicio: #9cd8a6;  // Borda verde um pouco mais forte
+
+@cor-fundo-evento-fim: #fbeae9;     // Vermelho muito claro
+@cor-borda-evento-fim: #f1a8a3;     // Borda vermelha um pouco mais forte
+
+@cor-texto-elemento: #1e1e1e;       // Cor do texto nos elementos (preto suave)
+
+
+// --- Aplicação dos Estilos ---
+
+// Usamos o seletor da DIV principal #js-canvas para aumentar a especificidade
+// e garantir que nossas regras sejam aplicadas.
+
+#js-canvas {
+ .djs-shape[data-element-id*="Activity"] .djs-visual rect {
+   fill: @cor-fundo-atividade !important;
+  //  stroke: @cor-borda-atividade !important;
+ }
+  
+
+  // Estilo para Atividades (Tasks)
+  .djs-shape[data-element-id*="Task"] .djs-visual rect {
+    fill: @cor-fundo-atividade !important;
+    stroke: @cor-borda-atividade !important;
+  }
+
+  // Estilo para Eventos de Início
+  .djs-shape[data-element-id*="StartEvent"] .djs-visual circle {
+    fill: @cor-fundo-evento-inicio !important;
+    // stroke: @cor-borda-evento-inicio !important;
+  }
+
+  // Estilo para Eventos de Fim
+  .djs-shape[data-element-id*="EndEvent"] .djs-visual circle {
+    fill: @cor-fundo-evento-fim !important;
+    stroke: @cor-borda-evento-fim !important;
+  }
+  
+  // Estilo para o texto (label) dos elementos
+  .djs-shape .djs-label {
+    fill: @cor-texto-elemento !important;
+  }
+}
+
+// .djs-shape[data-element-id*="Activity"] .djs-visual rect {
+//   fill: @cor-fundo-atividade !important;
+//   stroke: @cor-borda-atividade !important;
+// }

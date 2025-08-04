@@ -9,6 +9,7 @@ import Typography from '@mui/joy/Typography';
 import ModalClose from '@mui/joy/ModalClose';
 import Menu from '@mui/icons-material/Menu';
 import Search from '@mui/icons-material/Search';
+import { Link } from '@mui/joy';
 
 export default function DrawerMobileNavigation() {
   const [open, setOpen] = React.useState(false);
@@ -82,7 +83,9 @@ export default function DrawerMobileNavigation() {
           }}
         >
           <ListItemButton sx={{ fontWeight: 'lg' }}>Home</ListItemButton>
-          <ListItemButton>Novo mapa</ListItemButton>
+          <ListItemButton>
+            <Link href="http://localhost:8080">Novo MAPA</Link>
+          </ListItemButton>
           <ListItemButton>Árvore de processos</ListItemButton>
           <ListItemButton>XBusca</ListItemButton>
         </List>
