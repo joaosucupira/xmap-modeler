@@ -37,6 +37,7 @@ def on_startup():
 async def read_root():
     return {"message": "API UHU!"}
 
+# Teste
 @app.get("/usuarios/")
 async def get_users_data(db: Session = Depends(get_db)):
     users = db.query(Usuario).all()
@@ -59,6 +60,7 @@ async def create_user(nome: str, db: Session = Depends(get_db)):
     db.refresh(user)
     return {"message": "Usuário criado com sucesso!", "usuario": {"id": user.id, "nome": user.nome}}
 
+# Processos
 @app.post("/processos/")
 async def create_processo(id_pai: int = None, id_area: int = None, titulo: str = None, db: Session = Depends(get_db)):
     proc = Processo(id_pai=id_pai, id_area=id_area, titulo=titulo)
@@ -71,3 +73,51 @@ async def create_processo(id_pai: int = None, id_area: int = None, titulo: str =
 async def get_processos(db: Session = Depends(get_db)):
     processos = db.query(Processo).all()
     return {"processos": [{"id": proc.id, "id_pai": proc.id_pai, "id_area": proc.id_area, "titulo": proc.titulo, "data_publicacao": proc.data_publicacao} for proc in processos]}
+
+@app.get("/processos/{processo_id}")
+async def get_processo(processo_id: int, db: Session = Depends(get_db)):
+    proc = db.query(Processo).filter(Processo.id == processo_id).first() 
+    return {"processo": {"id": proc.id, "id_pai": proc.id_pai, "id_area": proc.id_area, "titulo": proc.titulo, "data_publicacao": proc.data_publicacao}}
+
+@app.get("/processos/{processo_id}/{filhos}")
+async def get_processo_filhos(processo_id: int, filhos: bool = False, db: Session = Depends(get_db)):
+    filhos = db.query(Processo).filter(Processo.id_pai == processo_id).all() if filhos else []
+    return {"filhos": [{"id": filho.id, "id_pai": filho.id_pai, "id_area": filho.id_area, "titulo": filho.titulo, "data_publicacao": filho.data_publicacao} for filho in filhos]}
+
+@app.delete("/processos/{processo_id}")
+async def delete_processo(processo_id: int, db: Session = Depends(get_db)):
+    proc = db.query(Processo).filter(Processo.id == processo_id).first()
+    if not proc:
+        raise HTTPException(status_code=404, detail="Processo não encontrado.")
+    db.delete(proc)
+    db.commit()
+    return {"message": "Processo deletado com sucesso!"}
+
+@app.put("/processos/{processo_id}")
+async def update_processo(processo_id: int, id_pai: int = None, id_area: int = None, titulo: str = None, db: Session = Depends(get_db)):
+    proc = db.query(Processo).filter(Processo.id == processo_id).first()
+    if not proc:
+        raise HTTPException(status_code=404, detail="Processo não encontrado.")
+    if id_pai is not None:
+        proc.id_pai = id_pai
+    if id_area is not None:
+        proc.id_area = id_area
+    if titulo is not None:
+        proc.titulo = titulo
+    db.commit()
+    db.refresh(proc)
+    return {"message": "Processo atualizado com sucesso!", "processo": {"id": proc.id, "id_pai": proc.id_pai, "id_area": proc.id_area, "titulo": proc.titulo, "data_publicacao": proc.data_publicacao}}
+
+# Mapas
+# @app.post("/mapas/")
+# async def create_mapa(id_proc: int, XML: str, db: Session = Depends(get_db)):
+#     mapa = Mapa(id_proc=id_proc, XML=XML)
+#     db.add(mapa)
+#     db.commit()
+#     db.refresh(mapa)
+#     return {"message": "Mapa criado com sucesso!", "mapa": {"id": mapa.id, "id_proc": mapa.id_proc, "XML": mapa.XML}}
+
+# @app.get("/mapas/")
+# async def get_mapas(db: Session = Depends(get_db)):
+#     mapas = db.query(Mapa).all()
+#     return {"mapas": [{"id": mapa.id, "id_proc": mapa.id_proc, "XML": mapa.XML} for mapa in mapas]}
