@@ -74,3 +74,4 @@ def login(usuario: UsuarioLogin, db: Session = Depends(get_db)):
     
     token = criar_token_acesso(data={"sub": db_usuario.email})
     return {"access_token": token, "token_type": "bearer"}
+
