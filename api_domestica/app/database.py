@@ -45,12 +45,13 @@ class Processo(Base):
     titulo = Column(String(200), nullable=False)
     data_publicacao = Column(Date, default=datetime.date(day=7, month=10, year=2005))
 
-# class Mapa(Base):
-#     __tablename__ = 'mapas'
+class Mapa(Base):
+    __tablename__ = 'mapas'
     
-#     id = Column(Integer, primary_key=True, autoincrement=True)
-#     id_proc = Column(Integer)
-#     XML = Column(String)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    id_proc = Column(Integer)
+    XML = Column(String)
+    
 
 def get_db():
     db = SessionLocal()

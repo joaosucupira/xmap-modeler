@@ -2,8 +2,10 @@
 
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from .database import create_all_tables, drop_and_create_all_tables,get_db, Usuario, Item, Processo
+from .database import create_all_tables, drop_and_create_all_tables,get_db, Usuario, Item, Processo, Mapa
 from fastapi.middleware.cors import CORSMiddleware
+from .utils import validate_entity
+from fastapi.responses import Response
 
 app = FastAPI()
 
@@ -30,7 +32,7 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     create_all_tables()
-    # drop_and_create_all_tables()
+    # drop_and_create_all_tables() # CUIDADO! Isto irá apagar todos os dados existentes e criar as tabelas novamente.
 
 # Endpoints
 @app.get("/")
@@ -76,7 +78,8 @@ async def get_processos(db: Session = Depends(get_db)):
 
 @app.get("/processos/{processo_id}")
 async def get_processo(processo_id: int, db: Session = Depends(get_db)):
-    proc = db.query(Processo).filter(Processo.id == processo_id).first() 
+    # proc = db.query(Processo).filter(Processo.id == processo_id).first() 
+    proc = validate_entity(db, processo_id, Processo)
     return {"processo": {"id": proc.id, "id_pai": proc.id_pai, "id_area": proc.id_area, "titulo": proc.titulo, "data_publicacao": proc.data_publicacao}}
 
 @app.get("/processos/{processo_id}/{filhos}")
@@ -86,18 +89,20 @@ async def get_processo_filhos(processo_id: int, filhos: bool = False, db: Sessio
 
 @app.delete("/processos/{processo_id}")
 async def delete_processo(processo_id: int, db: Session = Depends(get_db)):
-    proc = db.query(Processo).filter(Processo.id == processo_id).first()
-    if not proc:
-        raise HTTPException(status_code=404, detail="Processo não encontrado.")
+    # proc = db.query(Processo).filter(Processo.id == processo_id).first()
+    # if not proc:
+    #     raise HTTPException(status_code=404, detail="Processo não encontrado.")
+    proc = validate_entity(db, processo_id, Processo)
     db.delete(proc)
     db.commit()
     return {"message": "Processo deletado com sucesso!"}
 
 @app.put("/processos/{processo_id}")
 async def update_processo(processo_id: int, id_pai: int = None, id_area: int = None, titulo: str = None, db: Session = Depends(get_db)):
-    proc = db.query(Processo).filter(Processo.id == processo_id).first()
-    if not proc:
-        raise HTTPException(status_code=404, detail="Processo não encontrado.")
+    # proc = db.query(Processo).filter(Processo.id == processo_id).first()
+    # if not proc:
+    #     raise HTTPException(status_code=404, detail="Processo não encontrado.")
+    proc = validate_entity(db, processo_id, Processo)
     if id_pai is not None:
         proc.id_pai = id_pai
     if id_area is not None:
@@ -109,15 +114,37 @@ async def update_processo(processo_id: int, id_pai: int = None, id_area: int = N
     return {"message": "Processo atualizado com sucesso!", "processo": {"id": proc.id, "id_pai": proc.id_pai, "id_area": proc.id_area, "titulo": proc.titulo, "data_publicacao": proc.data_publicacao}}
 
 # Mapas
-# @app.post("/mapas/")
-# async def create_mapa(id_proc: int, XML: str, db: Session = Depends(get_db)):
-#     mapa = Mapa(id_proc=id_proc, XML=XML)
-#     db.add(mapa)
-#     db.commit()
-#     db.refresh(mapa)
-#     return {"message": "Mapa criado com sucesso!", "mapa": {"id": mapa.id, "id_proc": mapa.id_proc, "XML": mapa.XML}}
+@app.post("/mapas/")
+async def create_mapa(id_proc: int, XML: str, db: Session = Depends(get_db)):
+    mapa = Mapa(id_proc=id_proc, XML=XML)
+    db.add(mapa)
+    db.commit()
+    db.refresh(mapa)
+    return {"message": "Mapa criado com sucesso!", "mapa": {"id": mapa.id, "id_proc": mapa.id_proc, "XML": mapa.XML}}
 
-# @app.get("/mapas/")
-# async def get_mapas(db: Session = Depends(get_db)):
-#     mapas = db.query(Mapa).all()
-#     return {"mapas": [{"id": mapa.id, "id_proc": mapa.id_proc, "XML": mapa.XML} for mapa in mapas]}
+@app.get("/mapas/")
+async def get_mapas(db: Session = Depends(get_db)):
+    mapas = db.query(Mapa).all()
+    return {"mapas": [{"id": mapa.id, "id_proc": mapa.id_proc, "XML": mapa.XML} for mapa in mapas]}
+
+@app.get("/mapas/{mapa_id}")
+async def get_mapa(mapa_id: int, db:Session = Depends(get_db)):
+    # mapa = db.query(Mapa).filter(Mapa.id == mapa_id).first
+    mapa = validate_entity(db, mapa_id, Mapa)
+    return {"mapa": {
+        "id": mapa.id,
+        "proc_id": mapa.id_proc,
+        "XML": mapa.XML 
+        }}
+
+@app.get("/mapas/xml/{mapa_id}") # Nova rota para retornar apenas o XML
+async def get_mapa_xml(mapa_id: int, db: Session = Depends(get_db)):
+    """
+    Retorna o conteúdo XML de um mapa diretamente.
+    """
+    mapa = validate_entity(db, mapa_id, Mapa)
+    
+    # Retorna o conteúdo do campo XML com o tipo de mídia correto
+    return Response(content=mapa.XML, media_type="application/xml")
+
+# Documentos e Areas
