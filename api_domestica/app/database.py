@@ -42,6 +42,7 @@ class Processo(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     id_pai = Column(Integer, nullable=True)
     id_area = Column(Integer, nullable=True)
+    ordem = Column(Integer, nullable=True)
     titulo = Column(String(200), nullable=False)
     data_publicacao = Column(Date, default=datetime.date(day=7, month=10, year=2005))
 
@@ -51,6 +52,25 @@ class Mapa(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     id_proc = Column(Integer)
     XML = Column(String)
+    
+class Area(Base):
+    __tablename__ = 'areas'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    nome_area = Column(String)
+    sigla = Column(String)
+    tipo = Column(String)
+
+class Documento(Base):
+    __tablename__ = 'documentos'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    id_proc = Column(Integer)
+    nome_documento = Column(String)
+    link = Column(String)
+
+    
+
     
 
 def get_db():
