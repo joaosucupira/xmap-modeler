@@ -1,5 +1,6 @@
 import os
-from sqlalchemy import create_engine, Column, Integer, String
+import datetime
+from sqlalchemy import create_engine, Column, Integer, String, Date
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -20,6 +21,10 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 def create_all_tables(): 
     Base.metadata.create_all(bind=engine)
 
+def drop_and_create_all_tables():
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+
 class Usuario(Base):
     __tablename__ = "usuarios"
     
@@ -34,6 +39,42 @@ class Item(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     nome_item = Column(String(100), index=True)
+
+class Processo(Base):
+    __tablename__ = "processos"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    id_pai = Column(Integer, nullable=True)
+    id_area = Column(Integer, nullable=True)
+    ordem = Column(Integer, nullable=True)
+    titulo = Column(String(200), nullable=False)
+    data_publicacao = Column(Date, default=datetime.date(day=7, month=10, year=2005))
+
+class Mapa(Base):
+    __tablename__ = 'mapas'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    id_proc = Column(Integer)
+    XML = Column(String)
+    
+class Area(Base):
+    __tablename__ = 'areas'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    nome_area = Column(String)
+    sigla = Column(String)
+    tipo = Column(String)
+
+class Documento(Base):
+    __tablename__ = 'documentos'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    id_proc = Column(Integer)
+    nome_documento = Column(String)
+    link = Column(String)
+
+    
+
+    
 
 def get_db():
     db = SessionLocal()
