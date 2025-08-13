@@ -7,8 +7,6 @@ COPY . .
 
 RUN npm install
 
-RUN npm install @mui/material @emotion/react @emotion/styled
-
-EXPOSE 3000
+EXPOSE 8080
 
 CMD ["npm","start"]
