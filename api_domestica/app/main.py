@@ -75,8 +75,19 @@ def login(usuario: UsuarioLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Credenciais inválidas")
     
     token = criar_token_acesso(data={"sub": db_usuario.email})
-    return {"access_token": token, "token_type": "bearer"}
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user_id": db_usuario.id,
+        "user_name": db_usuario.nome,
+        "user_email": db_usuario.email
 
+    }
+
+
+@app.get("/me")
+def read_current_user(current_user: Usuario = Depends(get_db)):
+    return current_user
 
 @app.post("/usuarios/")
 async def create_user(nome: str, db: Session = Depends(get_db)):
