@@ -1,15 +1,16 @@
 
 
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException,status
 from sqlalchemy.orm import Session
-from .database import create_all_tables, drop_and_create_all_tables,get_db, Usuario, Item, Processo, Mapa, Area, Documento
+from .database import Metadados, create_all_tables, drop_and_create_all_tables,get_db, Usuario, Item, Processo, Mapa, Area, Documento
 from fastapi.middleware.cors import CORSMiddleware
 from .utils import validate_entity
 from fastapi.responses import Response
 from .schemas import UsuarioCreate,UsuarioLogin,UsuarioOut
 from .auth import gerar_hash_senha, verificar_senha, criar_token_acesso
 
-
+from . import xbanco
+from . import gemini
 app = FastAPI()
 
 
@@ -30,12 +31,13 @@ app.add_middleware(
 )
 
 # Endpoints
-
+app.include_router(xbanco.router)
+app.include_router(gemini.router)   
 # startup da aplicação
 @app.on_event("startup")
 def on_startup():
     create_all_tables()
-    # drop_and_create_all_tables() # CUIDADO! Isto irá apagar todos os dados existentes e criar as tabelas novamente.
+    drop_and_create_all_tables() # CUIDADO! Isto irá apagar todos os dados existentes e criar as tabelas novamente.
 
 # Endpoints
 @app.get("/")
@@ -181,8 +183,9 @@ async def get_mapa_xml(mapa_id: int, db: Session = Depends(get_db)):
 
 @app.get("/documentos/")
 async def get_documentos(db: Session = Depends(get_db)):
-    documentos = db.query(Documentos).all()
-    return {"documentos": [{"id": doc.id, "id_proc": doc.id_proc, "nome_documento": doc.nome_documento, "link": doc.link} for doc in documentos]}
+    #documentos = db.query(Documentos).all() lembra de descomentar quando for usar
+   # return {"documentos": [{"id": doc.id, "id_proc": doc.id_proc, "nome_documento": doc.nome_documento, "link": doc.link} for doc in documentos]}
+    pass
 
 @app.post("/documentos/")
 async def create_documento(id_proc: int, nome_documento: str, link: str, db: Session = Depends(get_db)):
@@ -212,3 +215,61 @@ async def delete_area(area_id: int, db:Session = Depends(get_db)):
     db.delete(area)
     db.commit()
     return {"message": "Area deletada com sucesso!"}
+
+@app.post("/metadados/{processo_id}/{atividade_id}")
+async def create_metadados(processo_id: int, atividade_id: int, nome: str, lgpd: str, dados: dict, db: Session = Depends(get_db)):
+    metadado = Metadados(id_processo=processo_id, id_atividade=atividade_id, nome=nome, lgpd=lgpd, dados=dados)
+    db.add(metadado)
+    db.commit()
+    db.refresh(metadado)
+    return {"message": "Metadados criados com sucesso!", "metadado": {"id": metadado.id, "id_processo": metadado.id_processo, "id_atividade": metadado.id_atividade, "nome": metadado.nome, "lgpd": metadado.lgpd, "dados": metadado.dados}}
+
+
+@app.put("/metadados/{metadado_id}")
+async def update_metadados(metadado_id: int, nome: str = None, lgpd: str = None, dados: dict = None, db: Session = Depends(get_db)):
+    metadado = db.query(Metadados).filter(Metadados.id == metadado_id).first()
+    
+    if not metadado:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Metadado não encontrado.")
+    
+    updated = False
+    if nome is not None:
+        metadado.nome = nome
+        updated = True
+    if lgpd is not None:
+        metadado.lgpd = lgpd
+        updated = True
+    if dados is not None:
+        metadado.dados = dados
+        updated = True
+
+    if updated:
+        db.commit()
+        db.refresh(metadado)
+
+    return {
+        "message": "Metadado atualizado com sucesso!",
+        "metadado": {
+            "id": metadado.id,
+            "id_processo": metadado.id_processo,
+            "id_atividade": metadado.id_atividade,
+            "nome": metadado.nome,
+            "lgpd": metadado.lgpd,
+            "dados": metadado.dados
+        }
+    }
+
+@app.get("/todos-metadados/")
+async def get_metadados( db: Session = Depends(get_db)):
+    metadados = db.query(Metadados).all()
+
+    return {"metadados": [metadados for meta in metadados]}
+    
+
+@app.get("/metadados/{processo_id}/{atividade_id}")
+async def get_metadados(processo_id: int, atividade_id: int, db: Session = Depends(get_db)):
+    metadados = db.query(Metadados).filter(Metadados.id_processo == processo_id, Metadados.id_atividade == atividade_id).all()
+    return {"metadados": [{"id": meta.id, "id_processo": meta.id_processo, "id_atividade": meta.id_atividade, "nome": meta.nome, 
+                           "lgpd": meta.lgpd, "dados": meta.dados} for meta in metadados]}
+
+

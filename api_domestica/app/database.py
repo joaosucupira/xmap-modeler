@@ -1,6 +1,6 @@
 import os
 import datetime
-from sqlalchemy import create_engine, Column, Integer, String, Date
+from sqlalchemy import create_engine, Column, Integer, String, Date, JSON
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -40,8 +40,18 @@ class Item(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     nome_item = Column(String(100), index=True)
 
+
+class Metadados(Base):
+    __tablename__ = "metadados"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    id_processo = Column(Integer)
+    id_atividade = Column(Integer)
+    nome= Column(String(100), index=True)
+    lgpd= Column(String(100), index=True)
+    dados = Column(JSON)  # aqui vai guardar o json
+
 class Processo(Base):
-    __tablename__ = "processos"
+    __tablename__ = "processos" 
     id = Column(Integer, primary_key=True, autoincrement=True)
     id_pai = Column(Integer, nullable=True)
     id_area = Column(Integer, nullable=True)
