@@ -1,7 +1,10 @@
-import { useState } from "react";
 import { Search, Filter, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+
+import { useState, useEffect } from "react";
+import { searchAll, type SearchItem } from "@/services/search";
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,7 +21,7 @@ interface SearchFilters {
   dateRange: string;
   author: string[];
 }
-
+ 
 export const SearchBar = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState<SearchFilters>({
@@ -26,6 +29,9 @@ export const SearchBar = () => {
     dateRange: "all",
     author: []
   });
+  const [results, setResults] = useState<SearchItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const processTypes = [
     { id: "sales", label: "Vendas" },
@@ -111,6 +117,35 @@ export const SearchBar = () => {
 
     return badges;
   };
+
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim().length < 3) {
+      setResults([]);
+      setError(null);
+      return;
+    }
+    const controller = new AbortController();
+    const t = setTimeout(async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        // Opcional: restringir tabelas. Se quiser todas, envie undefined.
+        const data = await searchAll(searchQuery.trim(), undefined, controller.signal);
+        setResults(data);
+      } catch (e: any) {
+        if (e?.name !== 'AbortError') {
+          setError(e?.message || 'Erro ao buscar');
+          setResults([]);
+        }
+      } finally {
+        setLoading(false);
+      }
+    }, 300);
+    return () => {
+      controller.abort();
+      clearTimeout(t);
+    };
+  }, [searchQuery]);
 
   return (
     <div className="space-y-3">
@@ -200,6 +235,36 @@ export const SearchBar = () => {
           >
             Limpar todos
           </Button>
+        </div>
+      )}
+
+      {/* Resultados da busca */}
+      {(loading || error || results.length > 0) && (
+        <div className="w-full max-h-72 overflow-auto rounded-md border bg-popover p-2 shadow-md">
+          {loading && (
+            <div className="text-sm text-muted-foreground px-2 py-1">Buscando...</div>
+          )}
+          {error && (
+            <div className="text-sm text-red-600 px-2 py-1">{error}</div>
+          )}
+          {!loading && !error && results.length === 0 && (
+            <div className="text-sm text-muted-foreground px-2 py-1">Sem resultados</div>
+          )}
+          {!loading && !error && results.map((r) => (
+            <button
+              key={`${r.tabela}-${r.id}`}
+              className="w-full text-left px-2 py-1 rounded hover:bg-muted/50 text-sm"
+              onClick={() => {
+                // Ex.: navegar para detalhe ou abrir no canvas
+                console.log('abrir', r);
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <span className="truncate">{r.descricao}</span>
+                <span className="ml-2 text-xs text-muted-foreground uppercase">{r.tabela}</span>
+              </div>
+            </button>
+          ))}
         </div>
       )}
     </div>

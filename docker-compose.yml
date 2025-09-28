@@ -32,13 +32,13 @@ services:
       uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload 
 
   ui:
-    build: ./ui
+    build: ./ui_xmap
     container_name: ui_xmap
     restart: "no"
     ports:
       - "4500:8080"
     volumes:
-      - ./ui:/app
+      - ./ui_xmap:/app
       - /app/node_modules
     environment:
       - REACT_APP_API_URL=http://localhost:8000
