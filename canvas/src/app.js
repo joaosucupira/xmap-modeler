@@ -43,6 +43,32 @@ var bpmnModeler = new BpmnModeler({
 function createNewDiagram() {
   openDiagram(diagramXML);
 }
+function getUrlParams() {
+  const urlParams = new URLSearchParams(window.location.search);
+  return {
+    mapa: urlParams.get('mapa'),
+    mode: urlParams.get('mode') || 'view'
+  };
+}
+
+async function loadMap(mapaId, mode = 'view') {
+  try {
+    const response = await fetch(`http://localhost:8000/canvas/${mode}/${mapaId}`);
+    if (!response.ok) throw new Error('Mapa não encontrado');
+    
+    const xml = await response.text();
+    await openDiagram(xml);
+    
+    // Se for modo de edição, adicionar botão de salvar
+    if (mode === 'edit') {
+      addSaveButton(mapaId);
+    }
+  } catch (err) {
+    console.error('Erro ao carregar mapa:', err);
+  }
+}
+
+// No $(function() { ... })
 
 async function openDiagram(xml) {
 
@@ -113,6 +139,12 @@ if (!window.FileList || !window.FileReader) {
 // bootstrap diagram functions
 
 $(function() {
+  const { mapa, mode } = getUrlParams();
+if (mapa) {
+  loadMap(mapa, mode);
+} else {
+  // Comportamento padrão (criar novo)
+
 
   $('#js-create-diagram').click(function(e) {
     e.stopPropagation();
@@ -178,5 +210,5 @@ $(function() {
     }
   }, 500);
 
-  bpmnModeler.on('commandStack.changed', exportArtifacts);
+  bpmnModeler.on('commandStack.changed', exportArtifacts);}
 });

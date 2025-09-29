@@ -1,6 +1,6 @@
 import os
 import datetime
-from sqlalchemy import create_engine, Column, Integer, String, Date, JSON
+from sqlalchemy import create_engine, Column, Integer, String, Date, JSON,Boolean
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -64,6 +64,7 @@ class Mapa(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     id_proc = Column(Integer)
+    status = Column(Boolean, default=True)
     XML = Column(String)
     
 class Area(Base):

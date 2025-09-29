@@ -13,8 +13,6 @@ router = APIRouter(prefix="/gemini", tags=["Gemini"])
 
 SYSTEM_MESSAGE = "Você é um assistente especializado em segurança cibernética. Responda sempre de forma clara e objetiva."
 
-# Modelo de entrada
-
 
 @router.post("/")
 def query_gemini(user_input: str):

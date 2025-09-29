@@ -1,225 +1,115 @@
-import { useState, useRef, useCallback } from "react";
+import { useState } from "react";
 import { 
-  Square, 
-  Circle, 
-  Diamond, 
+  ExternalLink,
+  Plus,
   ArrowRight,
-  MousePointer,
-  Hand,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw
+  FileText,
+  Settings
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-
-interface CanvasElement {
-  id: string;
-  type: 'process' | 'decision' | 'start' | 'end';
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  text: string;
-}
-
-const mockElements: CanvasElement[] = [
-  {
-    id: '1',
-    type: 'start',
-    x: 100,
-    y: 100,
-    width: 80,
-    height: 80,
-    text: 'Início'
-  },
-  {
-    id: '2',
-    type: 'process',
-    x: 250,
-    y: 100,
-    width: 120,
-    height: 60,
-    text: 'Análise do Pedido'
-  },
-  {
-    id: '3',
-    type: 'decision',
-    x: 450,
-    y: 100,
-    width: 100,
-    height: 80,
-    text: 'Aprovado?'
-  }
-];
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const ProcessCanvas = () => {
-  const [elements, setElements] = useState<CanvasElement[]>(mockElements);
-  const [selectedTool, setSelectedTool] = useState<string>('select');
-  const [zoom, setZoom] = useState(100);
-  const canvasRef = useRef<HTMLDivElement>(null);
+  const [selectedMap, setSelectedMap] = useState<number | null>(null);
 
-  const handleZoomIn = useCallback(() => {
-    setZoom(prev => Math.min(prev + 25, 200));
-  }, []);
-
-  const handleZoomOut = useCallback(() => {
-    setZoom(prev => Math.max(prev - 25, 25));
-  }, []);
-
-  const handleReset = useCallback(() => {
-    setZoom(100);
-  }, []);
-
-  const renderElement = (element: CanvasElement) => {
-    const style = {
-      left: element.x,
-      top: element.y,
-      width: element.width,
-      height: element.height,
-    };
-
-    const baseClasses = "absolute flex items-center justify-center text-xs font-medium cursor-pointer transition-all duration-200 hover:shadow-md border-2";
-    
-    switch (element.type) {
-      case 'start':
-      case 'end':
-        return (
-          <div
-            key={element.id}
-            className={`${baseClasses} rounded-full bg-card border-primary text-primary hover:bg-accent`}
-            style={style}
-          >
-            {element.text}
-          </div>
-        );
-      
-      case 'process':
-        return (
-          <div
-            key={element.id}
-            className={`${baseClasses} rounded-lg bg-card border-primary text-foreground hover:bg-accent`}
-            style={style}
-          >
-            {element.text}
-          </div>
-        );
-      
-      case 'decision':
-        return (
-          <div
-            key={element.id}
-            className={`${baseClasses} bg-card border-secondary text-foreground hover:bg-accent`}
-            style={{
-              ...style,
-              clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)'
-            }}
-          >
-            {element.text}
-          </div>
-        );
-      
-      default:
-        return null;
-    }
+  const handleNewProcess = () => {
+    // Abre o canvas externo em uma nova aba
+    window.open('http://localhost:8080', '_blank');
   };
+
+  const handleEditMap = (mapaId: number) => {
+    window.open(`http://localhost:8080?mapa=${mapaId}&mode=edit`, '_blank');
+  };
+
+  const handleViewMap = (mapaId: number) => {
+    window.open(`http://localhost:8080?mapa=${mapaId}&mode=view`, '_blank');
+  };
+
+  // Mock de mapas (substitua por dados reais da API)
+  const mockMaps = [
+    { id: 1, name: "Processo de Vendas", lastModified: "2 horas atrás" ,map_id:1},
+    { id: 2, name: "Aprovação de Compras", lastModified: "1 dia atrás" ,map_id:2},
+    { id: 3, name: "Gestão de Leads", lastModified: "3 dias atrás" ,map_id:3},
+  ];
 
   return (
     <div className="h-full flex flex-col bg-gradient-subtle">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 p-3 bg-card border-b shadow-soft">
-        <div className="flex items-center gap-1">
-          <Button
-            variant={selectedTool === 'select' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setSelectedTool('select')}
+      {/* Header */}
+      <div className="p-6 bg-card border-b shadow-soft">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+              Canvas de Modelagem
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Crie e edite diagramas de processo BPMN
+            </p>
+          </div>
+          <Button 
+            onClick={handleNewProcess}
+            className="flex items-center gap-2 bg-gradient-primary hover:bg-gradient-primary/90"
           >
-            <MousePointer className="h-4 w-4" />
-          </Button>
-          <Button
-            variant={selectedTool === 'pan' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setSelectedTool('pan')}
-          >
-            <Hand className="h-4 w-4" />
-          </Button>
-        </div>
-        
-        <Separator orientation="vertical" className="h-6" />
-        
-        <div className="flex items-center gap-1">
-          <Button
-            variant={selectedTool === 'process' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setSelectedTool('process')}
-            className="flex items-center gap-2"
-          >
-            <Square className="h-4 w-4" />
-            <span className="text-xs">Processo</span>
-          </Button>
-          <Button
-            variant={selectedTool === 'decision' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setSelectedTool('decision')}
-            className="flex items-center gap-2"
-          >
-            <Diamond className="h-4 w-4" />
-            <span className="text-xs">Decisão</span>
-          </Button>
-          <Button
-            variant={selectedTool === 'start' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setSelectedTool('start')}
-            className="flex items-center gap-2"
-          >
-            <Circle className="h-4 w-4" />
-            <span className="text-xs">Início/Fim</span>
-          </Button>
-          <Button
-            variant={selectedTool === 'connector' ? 'default' : 'ghost'}
-            size="sm"
-            onClick={() => setSelectedTool('connector')}
-            className="flex items-center gap-2"
-          >
-            <ArrowRight className="h-4 w-4" />
-            <span className="text-xs">Conector</span>
-          </Button>
-        </div>
-        
-        <Separator orientation="vertical" className="h-6 ml-auto" />
-        
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={handleZoomOut}>
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          <span className="text-xs px-2 py-1 bg-muted rounded min-w-[50px] text-center">
-            {zoom}%
-          </span>
-          <Button variant="ghost" size="sm" onClick={handleZoomIn}>
-            <ZoomIn className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={handleReset}>
-            <RotateCcw className="h-4 w-4" />
+            <Plus className="h-4 w-4" />
+            Novo Processo
+            <ExternalLink className="h-3 w-3" />
           </Button>
         </div>
       </div>
 
-      {/* Canvas */}
-      <div className="flex-1 overflow-hidden relative">
-        <div 
-          ref={canvasRef}
-          className="absolute inset-0 bg-canvas-bg"
-          style={{
-            backgroundImage: `
-              radial-gradient(circle, hsl(var(--canvas-grid)) 1px, transparent 1px)
-            `,
-            backgroundSize: '20px 20px',
-            transform: `scale(${zoom / 100})`,
-            transformOrigin: 'top left'
-          }}
-        >
-          {elements.map(renderElement)}
+      {/* Content */}
+      <div className="flex-1 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {mockMaps.map((map) => (
+            <Card key={map.id} className="hover:shadow-md transition-shadow cursor-pointer">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">{map.name}</CardTitle>
+                </div>
+                <CardDescription>
+                  Modificado {map.lastModified}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleViewMap(map.id)}
+                    className="flex-1"
+                  >
+                    <ArrowRight className="h-3 w-3 mr-1" />
+                    Visualizar
+                  </Button>
+                  <Button 
+                    variant="default" 
+                    size="sm" 
+                    onClick={() => handleEditMap(map.id)}
+                    className="flex-1"
+                  >
+                    <Settings className="h-3 w-3 mr-1" />
+                    Editar
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
+
+        {/* Empty State */}
+        {mockMaps.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-64 text-center">
+            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">Nenhum processo encontrado</h3>
+            <p className="text-muted-foreground mb-4">
+              Crie seu primeiro processo para começar
+            </p>
+            <Button onClick={handleNewProcess} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Criar Primeiro Processo
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );

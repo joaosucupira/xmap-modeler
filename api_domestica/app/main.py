@@ -1,5 +1,4 @@
 
-
 from fastapi import FastAPI, Depends, HTTPException,status
 from sqlalchemy.orm import Session
 from .database import Metadados, create_all_tables, drop_and_create_all_tables,get_db, Usuario, Item, Processo, Mapa, Area, Documento
@@ -11,6 +10,7 @@ from .auth import gerar_hash_senha, verificar_senha, criar_token_acesso
 
 from . import xbanco
 from . import gemini
+from . import canvas
 app = FastAPI()
 
 
@@ -32,7 +32,10 @@ app.add_middleware(
 
 # Endpoints
 app.include_router(xbanco.router)
+
+
 app.include_router(gemini.router)   
+app.include_router(canvas.router)
 # startup da aplicação
 @app.on_event("startup")
 def on_startup():

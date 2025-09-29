@@ -13,8 +13,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
+
 const Index = () => {
   const [activeView, setActiveView] = useState<'dashboard' | 'canvas' | 'search'>('dashboard');
+  const handleNewProcess = () => {
+    // Abre o canvas em uma nova aba
+    window.open('http://localhost:8080', '_blank');
+  };
 
   const renderMainContent = () => {
     switch (activeView) {
