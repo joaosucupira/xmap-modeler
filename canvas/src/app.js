@@ -50,7 +50,44 @@ function getUrlParams() {
     mode: urlParams.get('mode') || 'view'
   };
 }
+function addSaveButton(mapaId) {
+  const saveButton = document.createElement('button');
+  saveButton.textContent = 'Salvar Mapa';
+  saveButton.className = 'save-button';
+  document.querySelector('.buttons').appendChild(saveButton);
 
+  saveButton.addEventListener('click', async () => {
+    try {
+      const { xml } = await bpmnModeler.saveXML({ format: true });
+
+      // Codifica o XML para ser seguro para uso em uma URL
+      const encodedXml = encodeURIComponent(xml);
+
+      // Constrói a URL com o xml_content como um parâmetro de consulta
+      const url = `http://localhost:8000/canvas/save/${mapaId}?xml_content=${encodedXml}`;
+
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: {
+          'accept': 'application/json'
+        }
+        // O corpo da requisição é removido, pois os dados estão na URL
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Erro ao salvar o mapa: ${errorData.detail || response.status}`);
+      }
+
+      const result = await response.json();
+      alert(result.message || 'Mapa salvo com sucesso!');
+
+    } catch (err) {
+      console.error('Erro ao salvar:', err);
+      alert(`Erro ao salvar o mapa: ${err.message}`);
+    }
+  });
+}
 async function loadMap(mapaId, mode = 'view') {
   try {
     const response = await fetch(`http://localhost:8000/canvas/${mode}/${mapaId}`);
@@ -124,7 +161,32 @@ function registerFileDrop(container, callback) {
   container.get(0).addEventListener('drop', handleFileSelect, false);
 }
 
+async function downloadSVG() {
+  try {
+    // 1. Salva o diagrama como SVG
+    const { svg } = await bpmnModeler.saveSVG();
 
+    // 2. Cria um objeto Blob com o conteúdo SVG
+    const blob = new Blob([svg], { type: 'image/svg+xml' });
+
+    // 3. Cria um link temporário para o download
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'diagrama.svg'; // Nome do arquivo a ser baixado
+
+    // 4. Adiciona o link ao corpo, clica nele e depois remove
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // 5. Libera o objeto URL da memória
+    URL.revokeObjectURL(link.href);
+
+  } catch (err) {
+    console.error('Erro ao fazer download do SVG:', err);
+    alert('Não foi possível fazer o download do SVG.');
+  }
+}
 // file drag / drop ///////////////////////
 
 // check file api availability
@@ -135,10 +197,38 @@ if (!window.FileList || !window.FileReader) {
 } else {
   registerFileDrop(container, openDiagram);
 }
+async function downloadBPMN() {
+  try {
+    // 1. Salva o diagrama como XML (BPMN)
+    const { xml } = await bpmnModeler.saveXML({ format: true });
 
+    // 2. Cria um objeto Blob com o conteúdo XML
+    const blob = new Blob([xml], { type: 'application/bpmn+xml' });
+
+    // 3. Cria um link temporário para o download
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'diagrama.bpmn'; // Nome do arquivo a ser baixado
+
+    // 4. Adiciona o link, clica e remove
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // 5. Libera o objeto URL da memória
+    URL.revokeObjectURL(link.href);
+
+  } catch (err) {
+    console.error('Erro ao fazer download do BPMN:', err);
+    alert('Não foi possível fazer o download do arquivo BPMN.');
+  }
+}
 // bootstrap diagram functions
 
 $(function() {
+  $('#js-download-svg').on('click', downloadSVG);
+    $('#js-download-diagram').on('click', downloadBPMN); // Adiciona o listener para o novo botão
+
   const { mapa, mode } = getUrlParams();
 if (mapa) {
   loadMap(mapa, mode);
@@ -149,7 +239,6 @@ if (mapa) {
   $('#js-create-diagram').click(function(e) {
     e.stopPropagation();
     e.preventDefault();
-
     createNewDiagram();
   });
 
@@ -160,7 +249,7 @@ if (mapa) {
   // Adiciona o handler para redirecionar ao clicar no botão
   returnToStartLink.click(function(e) {
     e.preventDefault();
-    window.location.href = 'http://localhost:3000/home';
+    window.location.href = 'http://localhost:4500/';
   });
 
   $('.buttons a').click(function(e) {

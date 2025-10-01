@@ -1,6 +1,6 @@
 import { html } from 'htm/preact';
 
-import { TextFieldEntry, isTextFieldEntryEdited } from '@bpmn-io/properties-panel';
+import { TextFieldEntry,SelectEntry, isTextFieldEntryEdited } from '@bpmn-io/properties-panel';
 import { useService } from 'bpmn-js-properties-panel';
 
 export default function(element) {
@@ -56,10 +56,9 @@ function Charm(props) {
 
   const modeling = useService('modeling');
   const translate = useService('translate');
-  const debounce = useService('debounceInput');
 
   const getValue = () => {
-    return element.businessObject.charm || '';
+    return element.businessObject.charm || 'public';
   };
 
   const setValue = value => {
@@ -68,14 +67,21 @@ function Charm(props) {
     });
   };
 
-  return html`<${TextFieldEntry}
-    id=${ id }
-    element=${ element }
-    description=${ translate('Classificação de acordo com a Lei Geral de Proteção de Dados (LGPD)') }
-    label=${ translate('LGPD') }
-    getValue=${ getValue }
-    setValue=${ setValue }
-    debounce=${ debounce }
-  
+  const getLGPDOptions = () => {
+    return [
+      { value: 'public', label: 'Público' },
+      { value: 'confidential', label: 'Confidencial' },
+      { value: 'anonymized', label: 'Anonimizado' }
+    ];
+  };
+
+  return html`<${SelectEntry}
+    id=${id}
+    element=${element}
+    description=${translate('Classificação de acordo com a Lei Geral de Proteção de Dados (LGPD)')}
+    label=${translate('LGPD')}
+    getValue=${getValue}
+    setValue=${setValue}
+    getOptions=${getLGPDOptions}
   />`;
 }
