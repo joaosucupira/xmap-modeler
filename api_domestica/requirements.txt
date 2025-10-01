@@ -9,3 +9,4 @@ python-jose
 bcrypt
 numpy
 google-generativeai
+python-multipart

@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from .utils import validate_entity
 from fastapi.responses import Response
 from .schemas import UsuarioCreate,UsuarioLogin,UsuarioOut
+from fastapi.staticfiles import StaticFiles  # Importar StaticFiles
+
 from .auth import gerar_hash_senha, verificar_senha, criar_token_acesso
 
 from . import xbanco
@@ -36,11 +38,14 @@ app.include_router(xbanco.router)
 
 app.include_router(gemini.router)   
 app.include_router(canvas.router)
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
 # startup da aplicação
 @app.on_event("startup")
 def on_startup():
-    create_all_tables()
-    drop_and_create_all_tables() # CUIDADO! Isto irá apagar todos os dados existentes e criar as tabelas novamente.
+    pass
+   # create_all_tables()
+   # drop_and_create_all_tables() # CUIDADO! Isto irá apagar todos os dados existentes e criar as tabelas novamente.
 
 # Endpoints
 @app.get("/")
