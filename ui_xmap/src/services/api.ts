@@ -42,3 +42,34 @@ export async function searchAll(
   const data = (await res.json()) as SearchResponse;
   return data.resultados;
 }
+
+// ...existing code...
+// A interface DashboardData permanece a mesma
+export interface DashboardData {
+  stats: {
+    totalProcessos: number;
+    statusCounts: Record<string, number>;
+  };
+  processosRecentes: {
+    id: number;
+    titulo: string;
+    status: string;
+    dataModificacao: string;
+  }[];
+}
+
+// Função modificada para não usar token
+export const getDashboardData = async (status?: string): Promise<DashboardData> => {
+  const url = new URL(`${API_BASE_URL}/dashboard/`);
+  if (status) {
+    url.searchParams.append('status', status);
+  }
+
+  // O cabeçalho de autorização foi removido da requisição
+  const response = await fetch(url.toString());
+
+  if (!response.ok) {
+    throw new Error('Falha ao buscar dados do dashboard');
+  }
+  return response.json();
+};

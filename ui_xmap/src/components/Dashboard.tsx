@@ -1,207 +1,155 @@
-import { useState } from "react";
-import { 
-  BarChart3, 
-  FileText, 
-  Users, 
-  Clock, 
-  TrendingUp,
-  Plus,
-  FolderOpen
-} from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getDashboardData, DashboardData as DashboardDataType } from '@/services/api';
+import { Skeleton } from '@/components/ui/skeleton';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
-interface DashboardStats {
-  totalProcesses: number;
-  activeProjects: number;
-  teamMembers: number;
-  avgCompletionTime: string;
-}
+const getStatusBadgeVariant = (status: any): "default" | "secondary" | "destructive" | "outline" => {
+  // Se for booleano, trata primeiro
+  if (typeof status === 'boolean') {
+    // true = 'Concluído' (default/verde), false = 'Pendente' (destructive/vermelho)
+    return status ? 'default' : 'destructive';
+  }
 
-interface RecentProcess {
-  id: string;
-  name: string;
-  lastModified: string;
-  status: 'draft' | 'review' | 'approved';
-  author: string;
-}
-
-const mockStats: DashboardStats = {
-  totalProcesses: 47,
-  activeProjects: 12,
-  teamMembers: 8,
-  avgCompletionTime: "2.3 dias"
+  // Mantém a lógica antiga caso o status seja uma string
+  const statusString = String(status ?? '').toLowerCase();
+  switch (statusString) {
+    case 'concluído': return 'default';
+    case 'em andamento': return 'secondary';
+    case 'pendente': return 'destructive';
+    default: return 'outline';
+  }
 };
 
-const mockRecentProcesses: RecentProcess[] = [
-  {
-    id: '1',
-    name: 'Processo de Onboarding',
-    lastModified: '2 horas atrás',
-    status: 'draft',
-    author: 'João Silva'
-  },
-  {
-    id: '2',
-    name: 'Aprovação de Compras',
-    lastModified: '1 dia atrás',
-    status: 'review',
-    author: 'Maria Santos'
-  },
-  {
-    id: '3',
-    name: 'Gestão de Leads',
-    lastModified: '3 dias atrás',
-    status: 'approved',
-    author: 'Pedro Costa'
-  },
-  {
-    id: '4',
-    name: 'Processo de Vendas',
-    lastModified: '5 dias atrás',
-    status: 'approved',
-    author: 'Ana Silva'
+export function Dashboard() {
+  const [data, setData] = useState<DashboardDataType | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState<string>('todos');
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const filter = activeFilter === 'todos' ? undefined : activeFilter;
+        const dashboardData = await getDashboardData(filter);
+        setData(dashboardData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Ocorreu um erro ao buscar os dados.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [activeFilter]);
+
+  // 1. Lógica de renderização condicional mais segura
+  if (loading) {
+    return <DashboardSkeleton />;
   }
-];
 
-export const Dashboard = () => {
-  const [recentProcesses] = useState<RecentProcess[]>(mockRecentProcesses);
+  if (error) {
+    return <div className="p-4 text-center text-red-500 bg-red-100 border border-red-400 rounded-md"><strong>Erro:</strong> {error}</div>;
+  }
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'draft': return 'text-yellow-600 bg-yellow-100';
-      case 'review': return 'text-blue-600 bg-blue-100';
-      case 'approved': return 'text-green-600 bg-green-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
+  // 2. Garante que 'data' não é nulo antes de prosseguir
+  if (!data) {
+    return <div className="text-center p-8">Não foi possível carregar os dados do dashboard.</div>;
+  }
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'draft': return 'Rascunho';
-      case 'review': return 'Em revisão';
-      case 'approved': return 'Aprovado';
-      default: return status;
-    }
-  };
-
+  const statusList = ['todos', ...Object.keys(data.stats.statusCounts ?? {})];
+const chartData = Object.entries(data.stats.statusCounts).map(([status, count]) => ({
+  status,
+  count
+}));
   return (
-    <div className="h-full overflow-auto bg-gradient-subtle">
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Dashboard
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Gerencie seus processos de negócio
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex items-center gap-2">
-              <FolderOpen className="h-4 w-4" />
-              Novo Projeto
-            </Button>
-            <Button className="flex items-center gap-2 bg-gradient-primary">
-              <Plus className="h-4 w-4" />
-              Novo Processo
-            </Button>
-          </div>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-gradient-card shadow-soft border-border/50">
+    <div className="space-y-6">
+      {/* Cards de Resumo Global */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {Object.entries(data.stats.statusCounts).map(([status, count]) => (
+          <Card key={status}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total de Processos</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium capitalize">{status || 'Sem Status'}</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockStats.totalProcesses}</div>
-              <p className="text-xs text-muted-foreground">
-                <TrendingUp className="inline h-3 w-3 mr-1" />
-                +12% em relação ao mês anterior
-              </p>
+              <div className="text-2xl font-bold">{count}</div>
             </CardContent>
           </Card>
-
-          <Card className="bg-gradient-card shadow-soft border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Projetos Ativos</CardTitle>
-              <BarChart3 className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{mockStats.activeProjects}</div>
-              <p className="text-xs text-muted-foreground">
-                Em desenvolvimento ou revisão
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card shadow-soft border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Membros da Equipe</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{mockStats.teamMembers}</div>
-              <p className="text-xs text-muted-foreground">
-                Colaboradores ativos
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-card shadow-soft border-border/50">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Tempo Médio</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{mockStats.avgCompletionTime}</div>
-              <p className="text-xs text-muted-foreground">
-                Para conclusão de processos
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Recent Processes */}
-        <Card className="bg-gradient-card shadow-medium border-border/50">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Processos Recentes
-            </CardTitle>
-            <CardDescription>
-              Últimos processos modificados pela sua equipe
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {recentProcesses.map((process) => (
-              <div 
-                key={process.id}
-                className="flex items-center justify-between p-3 rounded-lg border bg-card/50 hover:bg-card transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <FileText className="h-4 w-4 text-primary" />
-                  <div>
-                    <h4 className="font-medium text-sm">{process.name}</h4>
-                    <p className="text-xs text-muted-foreground">
-                      Por {process.author} • {process.lastModified}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(process.status)}`}>
-                    {getStatusText(process.status)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+        ))}
       </div>
+  <Card>
+      <CardHeader>
+        <CardTitle>Distribuição de Status</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={Object.entries(data.stats.statusCounts).map(([status, count]) => ({
+                status,
+                count,
+              }))}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="status" />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="count" fill="#28a745" radius={[8, 8, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </CardContent>
+    </Card>
+      {/* Filtros e Tabela de Processos Recentes */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Processos Recentes</CardTitle>
+          <Tabs value={activeFilter} onValueChange={setActiveFilter} className="mt-4">
+            <TabsList>
+              {statusList.map(status => (
+                <TabsTrigger key={status} value={status} className="capitalize">{status}</TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </CardHeader>
+        <CardContent>
+            <Table>
+              <TableHeader><TableRow><TableHead>Título</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Última Modificação</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {data.processosRecentes.length > 0 ? (
+                  data.processosRecentes.map((processo) => (
+                    <TableRow key={processo.id}>
+                      <TableCell className="font-medium">{processo.titulo}</TableCell>
+                      <TableCell><Badge variant={getStatusBadgeVariant(processo.status)} className="capitalize">{processo.status || 'N/A'}</Badge></TableCell>
+                      <TableCell className="text-right">{new Date(processo.dataModificacao).toLocaleDateString('pt-BR')}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow><TableCell colSpan={3} className="h-24 text-center">Nenhum processo encontrado para este filtro.</TableCell></TableRow>
+                )}
+              </TableBody>
+            </Table>
+        </CardContent>
+      </Card>
+      
     </div>
   );
-};
+}
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Skeleton className="h-28 w-full" /><Skeleton className="h-28 w-full" /><Skeleton className="h-28 w-full" /><Skeleton className="h-28 w-full" />
+      </div>
+      <Card>
+        <CardHeader><Skeleton className="h-8 w-1/4" /><div className="flex space-x-2 mt-4"><Skeleton className="h-10 w-20" /><Skeleton className="h-10 w-20" /></div></CardHeader>
+        <CardContent className="space-y-2"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></CardContent>
+      </Card>
+    </div>
+  );
+}

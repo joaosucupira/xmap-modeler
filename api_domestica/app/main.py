@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles  # Importar StaticFiles
 
 from .auth import gerar_hash_senha, verificar_senha, criar_token_acesso
 
-from . import xbanco
+from . import xbanco, dashboard
 from . import gemini
 from . import canvas
 app = FastAPI()
@@ -34,10 +34,10 @@ app.add_middleware(
 
 # Endpoints
 app.include_router(xbanco.router)
-
-
 app.include_router(gemini.router)   
 app.include_router(canvas.router)
+app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # startup da aplicação
