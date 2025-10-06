@@ -58,12 +58,74 @@ function addSaveButton(mapaId) {
 
   saveButton.addEventListener('click', async () => {
     try {
+      // ETAPA 1: Coletar todos os metadados do diagrama
+      // ----------------------------------------------------
+      console.log('Iniciando coleta de metadados...');
+      const elementRegistry = bpmnModeler.get('elementRegistry');
+      const allElements = elementRegistry.getAll();
+      const metadataPayloads = [];
+
+      allElements.forEach(element => {
+        const bizObj = element.businessObject;
+
+        // Verifica se o elemento tem as propriedades customizadas que queremos salvar
+        if (bizObj.generatedDataJson || bizObj.charm) {
+          
+          let dados = [];
+          // Faz o parse do JSON de 'generatedData' de forma segura
+          if (bizObj.generatedDataJson) {
+            try {
+              dados = JSON.parse(bizObj.generatedDataJson);
+            } catch (e) {
+              console.error(`Erro ao fazer parse do JSON para o elemento ${element.id}:`, e);
+            }
+          }
+          
+          metadataPayloads.push({
+            id_processo: parseInt(mapaId, 10), // Garante que seja um número
+            id_atividade: element.id, // O ID do elemento BPMN
+            nome: "generatedData",
+            lgpd: bizObj.charm || 'public', // Usa o valor de 'charm' ou um padrão
+            dados: dados // O array de dados
+          });
+        }
+      });
+      
+      console.log(`${metadataPayloads.length} elementos com metadados encontrados.`);
+
+      // ETAPA 2: Enviar os metadados para a API em lote
+      // ----------------------------------------------------
+      if (metadataPayloads.length > 0) {
+        console.log('Enviando metadados para a API...');
+        
+        // Cria uma promessa de 'fetch' para cada metadado
+        const savePromises = metadataPayloads.map(payload => {
+          return fetch('http://localhost:8000/metadados/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          }).then(response => {
+            if (!response.ok) {
+              // Se uma das requisições falhar, lança um erro para parar o processo
+              throw new Error(`Falha ao salvar metadado para a atividade ${payload.id_atividade}`);
+            }
+            return response.json();
+          });
+        });
+
+        // Espera todas as promessas de salvamento terminarem
+        await Promise.all(savePromises);
+        console.log('Metadados salvos com sucesso!');
+      }
+
+      // ETAPA 3: Salvar o XML do diagrama (lógica original)
+      // ----------------------------------------------------
+      console.log('Salvando o XML do mapa...');
       const { xml } = await bpmnModeler.saveXML({ format: true });
-
-      // Codifica o XML para ser seguro para uso em uma URL
       const encodedXml = encodeURIComponent(xml);
-
-      // Constrói a URL com o xml_content como um parâmetro de consulta
       const url = `http://localhost:8000/canvas/save/${mapaId}?xml_content=${encodedXml}`;
 
       const response = await fetch(url, {
@@ -71,7 +133,6 @@ function addSaveButton(mapaId) {
         headers: {
           'accept': 'application/json'
         }
-        // O corpo da requisição é removido, pois os dados estão na URL
       });
 
       if (!response.ok) {
@@ -80,14 +141,16 @@ function addSaveButton(mapaId) {
       }
 
       const result = await response.json();
-      alert(result.message || 'Mapa salvo com sucesso!');
+      alert(result.message || 'Mapa e metadados salvos com sucesso!');
 
     } catch (err) {
-      console.error('Erro ao salvar:', err);
-      alert(`Erro ao salvar o mapa: ${err.message}`);
+      console.error('Erro durante o processo de salvar:', err);
+      alert(`Erro ao salvar: ${err.message}`);
     }
   });
 }
+
+
 async function loadMap(mapaId, mode = 'view') {
   try {
     const response = await fetch(`http://localhost:8000/canvas/${mode}/${mapaId}`);
@@ -99,11 +162,16 @@ async function loadMap(mapaId, mode = 'view') {
     // Se for modo de edição, adicionar botão de salvar
     if (mode === 'edit') {
       addSaveButton(mapaId);
+    } else if (mode === 'view') {
+      // 🔹 Oculta barra de ferramentas e painel de propriedades
+      document.querySelector('.djs-palette')?.classList.add('hidden');
+      document.querySelector('#js-properties-panel')?.classList.add('hidden');
     }
   } catch (err) {
     console.error('Erro ao carregar mapa:', err);
   }
 }
+
 
 // No $(function() { ... })
 

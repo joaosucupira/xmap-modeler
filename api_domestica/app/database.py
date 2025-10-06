@@ -1,6 +1,7 @@
 import os
 import datetime
 from sqlalchemy import create_engine, Column, Integer, String, Date, JSON,Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Date, JSON,Boolean, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -45,7 +46,7 @@ class Metadados(Base):
     __tablename__ = "metadados"
     id = Column(Integer, primary_key=True, autoincrement=True)
     id_processo = Column(Integer)
-    id_atividade = Column(Integer)
+    id_atividade = Column(String(100), index=True) ##mudanca de Integer para String
     nome= Column(String(100), index=True)
     lgpd= Column(String(100), index=True)
     dados = Column(JSON)  # aqui vai guardar o json
@@ -58,6 +59,7 @@ class Processo(Base):
     ordem = Column(Integer, nullable=True)
     titulo = Column(String(200), nullable=False)
     data_publicacao = Column(Date, default=datetime.date(day=7, month=10, year=2005))
+    data_criacao = Column(DateTime, default=datetime.datetime.utcnow)
 
 class Mapa(Base):
     __tablename__ = 'mapas'

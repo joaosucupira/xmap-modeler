@@ -22,8 +22,14 @@
           "name": "charm",
           "isAttr": true,
           "type": "String"
-        }
+        },
+      {  "name": "generatedDataJson",
+          "isAttr": true,
+          "type": "String"
+      }
       ]
     }
-  ]
+  ],
+    "associations": []
+
 }

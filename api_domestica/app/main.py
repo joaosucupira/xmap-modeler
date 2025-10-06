@@ -1,11 +1,12 @@
 
 from fastapi import FastAPI, Depends, HTTPException,status
 from sqlalchemy.orm import Session
+
 from .database import Metadados, create_all_tables, drop_and_create_all_tables,get_db, Usuario, Item, Processo, Mapa, Area, Documento
 from fastapi.middleware.cors import CORSMiddleware
 from .utils import validate_entity
 from fastapi.responses import Response
-from .schemas import UsuarioCreate,UsuarioLogin,UsuarioOut
+from .schemas import UsuarioCreate,UsuarioLogin,UsuarioOut,MetadadosBase,MetadadosCreate,MetadadosResponse
 from fastapi.staticfiles import StaticFiles  # Importar StaticFiles
 
 from .auth import gerar_hash_senha, verificar_senha, criar_token_acesso
@@ -45,7 +46,7 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 def on_startup():
     pass
    # create_all_tables()
-   # drop_and_create_all_tables() # CUIDADO! Isto irá apagar todos os dados existentes e criar as tabelas novamente.
+   #drop_and_create_all_tables() # CUIDADO! Isto irá apagar todos os dados existentes e criar as tabelas novamente.
 
 # Endpoints
 @app.get("/")
@@ -224,13 +225,58 @@ async def delete_area(area_id: int, db:Session = Depends(get_db)):
     db.commit()
     return {"message": "Area deletada com sucesso!"}
 
-@app.post("/metadados/{processo_id}/{atividade_id}")
-async def create_metadados(processo_id: int, atividade_id: int, nome: str, lgpd: str, dados: dict, db: Session = Depends(get_db)):
-    metadado = Metadados(id_processo=processo_id, id_atividade=atividade_id, nome=nome, lgpd=lgpd, dados=dados)
-    db.add(metadado)
-    db.commit()
-    db.refresh(metadado)
-    return {"message": "Metadados criados com sucesso!", "metadado": {"id": metadado.id, "id_processo": metadado.id_processo, "id_atividade": metadado.id_atividade, "nome": metadado.nome, "lgpd": metadado.lgpd, "dados": metadado.dados}}
+# Em seu arquivo main.py
+# Em seu arquivo main.py
+
+@app.post("/metadados/", response_model=MetadadosResponse)
+def create_or_update_metadados(
+    metadados: MetadadosCreate, 
+    db: Session = Depends(get_db)
+):
+    """
+    Cria ou atualiza os metadados de uma atividade específica de um processo.
+    Versão com logs detalhados para depuração.
+    """
+    print("\n--- INICIANDO REQUISIÇÃO PARA /metadados/ ---")
+    print(f"Recebido: id_processo={metadados.id_processo}, id_atividade='{metadados.id_atividade}', nome='{metadados.nome}'")
+
+    # Tenta encontrar o objeto existente com base na chave única
+    try:
+        existing_metadata = db.query(Metadados).filter(
+            Metadados.id_processo == metadados.id_processo,
+            Metadados.id_atividade == metadados.id_atividade,
+            Metadados.nome == metadados.nome
+        ).one_or_none() # Usar one_or_none() é mais explícito que .first()
+
+        if existing_metadata:
+            # Se encontrou, entra no modo de ATUALIZAÇÃO
+            print(f"--> ENCONTRADO registro existente com ID: {existing_metadata.id}. ATUALIZANDO.")
+            existing_metadata.lgpd = metadados.lgpd
+            existing_metadata.dados = metadados.dados
+            db_metadados_final = existing_metadata
+            
+        else:
+            # Se NÃO encontrou, entra no modo de CRIAÇÃO
+            print("--> NÃO ENCONTRADO registro existente. CRIANDO NOVO.")
+            db_metadados_novo = Metadados(**metadados.dict())
+            db.add(db_metadados_novo)
+            db_metadados_final = db_metadados_novo
+
+        # Salva as alterações (seja criação ou atualização)
+        db.commit()
+        # Refresh para obter o estado final do objeto do banco de dados
+        db.refresh(db_metadados_final)
+        
+        print(f"Operação concluída. ID final do registro: {db_metadados_final.id}")
+        print("--- FIM DA REQUISIÇÃO ---\n")
+        
+        return db_metadados_final
+
+    except Exception as e:
+        print(f"!!!!!! OCORREU UM ERRO INESPERADO: {e} !!!!!!")
+        db.rollback() # Desfaz a transação em caso de erro
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @app.put("/metadados/{metadado_id}")
@@ -273,11 +319,4 @@ async def get_metadados( db: Session = Depends(get_db)):
 
     return {"metadados": [metadados for meta in metadados]}
     
-
-@app.get("/metadados/{processo_id}/{atividade_id}")
-async def get_metadados(processo_id: int, atividade_id: int, db: Session = Depends(get_db)):
-    metadados = db.query(Metadados).filter(Metadados.id_processo == processo_id, Metadados.id_atividade == atividade_id).all()
-    return {"metadados": [{"id": meta.id, "id_processo": meta.id_processo, "id_atividade": meta.id_atividade, "nome": meta.nome, 
-                           "lgpd": meta.lgpd, "dados": meta.dados} for meta in metadados]}
-
 
