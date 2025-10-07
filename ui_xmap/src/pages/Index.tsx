@@ -54,8 +54,7 @@ const Index = () => {
         {/* Logo/Header */}
         <div className="p-4 border-b">
           <h2 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            ProcessMap Pro
-          </h2>
+Xmap          </h2>
           <p className="text-sm text-muted-foreground">Modelagem de Processos</p>
         </div>
 
