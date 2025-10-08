@@ -1,7 +1,6 @@
-
 from fastapi import FastAPI, Depends, HTTPException,status
 from sqlalchemy.orm import Session
-from .database import Metadados, create_all_tables, drop_and_create_all_tables,get_db, Usuario, Item, Processo, Mapa, Area, Documento
+from .database import Metadados, create_all_tables, drop_and_create_all_tables,get_db, Usuario, Item, Processo, Area, Documento, MacroProcesso
 from fastapi.middleware.cors import CORSMiddleware
 from .utils import validate_entity
 from fastapi.responses import Response
@@ -150,38 +149,6 @@ async def update_processo(processo_id: int, id_pai: int = None, id_area: int = N
     db.refresh(proc)
     return {"message": "Processo atualizado com sucesso!", "processo": {"id": proc.id, "id_pai": proc.id_pai, "id_area": proc.id_area, "ordem": proc.ordem, "titulo": proc.titulo, "data_publicacao": proc.data_publicacao}}
 
-# Mapas
-@app.post("/mapas/")
-async def create_mapa(id_proc: int, XML: str, db: Session = Depends(get_db)):
-    mapa = Mapa(id_proc=id_proc, XML=XML)
-    db.add(mapa)
-    db.commit()
-    db.refresh(mapa)
-    return {"message": "Mapa criado com sucesso!", "mapa": {"id": mapa.id, "id_proc": mapa.id_proc, "XML": mapa.XML}}
-
-@app.get("/mapas/")
-async def get_mapas(db: Session = Depends(get_db)):
-    mapas = db.query(Mapa).all()
-    return {"mapas": [{"id": mapa.id, "id_proc": mapa.id_proc, "XML": mapa.XML} for mapa in mapas]}
-
-@app.get("/mapas/{mapa_id}")
-async def get_mapa(mapa_id: int, db:Session = Depends(get_db)):
-    # mapa = db.query(Mapa).filter(Mapa.id == mapa_id).first
-    mapa = validate_entity(db, mapa_id, Mapa)
-    return {"mapa": {
-        "id": mapa.id,
-        "proc_id": mapa.id_proc,
-        "XML": mapa.XML 
-        }}
-
-@app.get("/mapas/xml/{mapa_id}") # Nova rota para retornar apenas o XML
-async def get_mapa_xml(mapa_id: int, db: Session = Depends(get_db)):
-
-    mapa = validate_entity(db, mapa_id, Mapa)
-    
-    # Retorna o conteúdo do campo XML com o tipo de mídia correto
-    return Response(content=mapa.XML, media_type="application/xml")
-
 # Documentos e Areas
 
 @app.get("/documentos/")
@@ -276,3 +243,47 @@ async def get_metadados(processo_id: int, atividade_id: int, db: Session = Depen
                            "lgpd": meta.lgpd, "dados": meta.dados} for meta in metadados]}
 
 
+@app.post("/macro_processos/")
+async def create_macro_processo(nome: str, db: Session = Depends(get_db)):
+    macro = MacroProcesso(nome=nome)
+    db.add(macro)
+    db.commit()
+    db.refresh(macro)
+    return {"message": "MacroProcesso criado com sucesso!", "macro_processo": {"id": macro.id, "nome": macro.nome}}
+
+@app.get("/macro_processos/")
+async def get_macro_processos(db: Session = Depends(get_db)):
+    macros = db.query(MacroProcesso).all()
+    return {"macro_processos": [{"id": macro.id, "nome": macro.nome, "processos": [p.id for p in macro.processos]} for macro in macros]}
+
+@app.get("/macro_processos/{macro_id}")
+async def get_macro_processo(macro_id: int, db: Session = Depends(get_db)):
+    macro = validate_entity(db, macro_id, MacroProcesso)
+    return {"macro_processo": {"id": macro.id, "nome": macro.nome, "processos": [p.id for p in macro.processos]}}
+
+@app.post("/macro_processos/{macro_id}/associar_processo/{processo_id}")
+async def associar_processo(macro_id: int, processo_id: int, db: Session = Depends(get_db)):
+    macro = validate_entity(db, macro_id, MacroProcesso)
+    processo = validate_entity(db, processo_id, Processo)
+    if processo not in macro.processos:
+        macro.processos.append(processo)
+        db.commit()
+        db.refresh(macro)
+    return {"message": "Processo associado com sucesso!"}
+
+@app.delete("/macro_processos/{macro_id}/remover_processo/{processo_id}")
+async def remover_processo(macro_id: int, processo_id: int, db: Session = Depends(get_db)):
+    macro = validate_entity(db, macro_id, MacroProcesso)
+    processo = validate_entity(db, processo_id, Processo)
+    if processo in macro.processos:
+        macro.processos.remove(processo)
+        db.commit()
+        db.refresh(macro)
+    return {"message": "Processo removido com sucesso!"}
+
+@app.delete("/macro_processos/{macro_id}")
+async def delete_macro_processo(macro_id: int, db: Session = Depends(get_db)):
+    macro = validate_entity(db, macro_id, MacroProcesso)
+    db.delete(macro)
+    db.commit()
+    return {"message": "MacroProcesso deletado com sucesso!"}

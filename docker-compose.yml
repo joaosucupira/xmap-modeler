@@ -14,6 +14,20 @@ services:
     volumes:
       - pg_data_volume:/var/lib/postgresql/data
 
+  pgadmin:
+    image: dpage/pgadmin4:7
+    container_name: xmap_pgadmin
+    restart: "no"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - db
+
   api:
     build:
       context: ./api_domestica
@@ -80,3 +94,4 @@ services:
 
 volumes:
   pg_data_volume:
+  pgadmin_data:

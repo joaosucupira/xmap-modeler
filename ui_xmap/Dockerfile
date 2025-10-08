@@ -10,6 +10,8 @@ COPY package*.json ./
 # Instale todas as dependências do projeto
 RUN npm install
 
+RUN npm install react-modal
+
 # Copie o restante dos arquivos da aplicação
 COPY . .
 

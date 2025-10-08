@@ -46,13 +46,13 @@ function createNewDiagram() {
 function getUrlParams() {
   const urlParams = new URLSearchParams(window.location.search);
   return {
-    mapa: urlParams.get('mapa'),
+    processo: urlParams.get('processo'),
     mode: urlParams.get('mode') || 'view'
   };
 }
-function addSaveButton(mapaId) {
+function addSaveButton(processoId) {
   const saveButton = document.createElement('button');
-  saveButton.textContent = 'Salvar Mapa';
+  saveButton.textContent = 'Salvar Processo';
   saveButton.className = 'save-button';
   document.querySelector('.buttons').appendChild(saveButton);
 
@@ -60,48 +60,83 @@ function addSaveButton(mapaId) {
     try {
       const { xml } = await bpmnModeler.saveXML({ format: true });
 
-      // Codifica o XML para ser seguro para uso em uma URL
-      const encodedXml = encodeURIComponent(xml);
-
-      // Constrói a URL com o xml_content como um parâmetro de consulta
-      const url = `http://localhost:8000/canvas/save/${mapaId}?xml_content=${encodedXml}`;
-
-      const response = await fetch(url, {
+      const response = await fetch(`http://localhost:8000/canvas/save/${processoId}`, {
         method: 'PUT',
         headers: {
-          'accept': 'application/json'
-        }
-        // O corpo da requisição é removido, pois os dados estão na URL
+          'Content-Type': 'text/plain'
+        },
+        body: xml
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(`Erro ao salvar o mapa: ${errorData.detail || response.status}`);
+        throw new Error(`Erro ao salvar o processo: ${errorData.detail || response.status}`);
       }
 
       const result = await response.json();
-      alert(result.message || 'Mapa salvo com sucesso!');
+      alert(result.message || 'Processo salvo com sucesso!');
 
     } catch (err) {
       console.error('Erro ao salvar:', err);
-      alert(`Erro ao salvar o mapa: ${err.message}`);
+      alert(`Erro ao salvar o processo: ${err.message}`);
     }
   });
 }
-async function loadMap(mapaId, mode = 'view') {
+function addCadastrarButton() {
+  const cadastrarButton = document.createElement('button');
+  cadastrarButton.textContent = 'Cadastrar BPMN';
+  cadastrarButton.className = 'cadastrar-button';
+  document.querySelector('.buttons').appendChild(cadastrarButton);
+
+  cadastrarButton.addEventListener('click', async () => {
+    const titulo = prompt('Digite o título do processo:');
+    if (!titulo) {
+      alert('Título é obrigatório!');
+      return;
+    }
+
+    try {
+      const { xml } = await bpmnModeler.saveXML({ format: true });
+
+      const response = await fetch('http://localhost:8000/canvas/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          titulo: titulo,
+          xml_content: xml
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Erro ao cadastrar: ${errorData.detail || response.status}`);
+      }
+
+      const result = await response.json();
+      alert(`${result.message} ID: ${result.processo_id}`);
+      // Opcional: Redirecionar ou atualizar a URL com o novo ID para modo edit
+      window.location.search = `?processo=${result.processo_id}&mode=edit`;
+
+    } catch (err) {
+      console.error('Erro ao cadastrar:', err);
+      alert(`Erro ao cadastrar o BPMN: ${err.message}`);
+    }
+  });
+}
+async function loadProcesso(processoId, mode = 'view') {
   try {
-    const response = await fetch(`http://localhost:8000/canvas/${mode}/${mapaId}`);
-    if (!response.ok) throw new Error('Mapa não encontrado');
+    const response = await fetch(`http://localhost:8000/canvas/${mode}/${processoId}`);
+    if (!response.ok) throw new Error('Processo não encontrado');
     
     const xml = await response.text();
     await openDiagram(xml);
     
-    // Se for modo de edição, adicionar botão de salvar
-    if (mode === 'edit') {
-      addSaveButton(mapaId);
-    }
+    // Sempre adicionar o botão de salvar, independentemente do modo
+    addSaveButton(processoId);
   } catch (err) {
-    console.error('Erro ao carregar mapa:', err);
+    console.error('Erro ao carregar processo:', err);
   }
 }
 
@@ -229,11 +264,12 @@ $(function() {
   $('#js-download-svg').on('click', downloadSVG);
     $('#js-download-diagram').on('click', downloadBPMN); // Adiciona o listener para o novo botão
 
-  const { mapa, mode } = getUrlParams();
-if (mapa) {
-  loadMap(mapa, mode);
+  const { processo, mode } = getUrlParams();
+if (processo) {
+  loadProcesso(processo, mode);
 } else {
   // Comportamento padrão (criar novo)
+  addCadastrarButton(); // Adiciona o botão de cadastrar quando não há processo_id
 
 
   $('#js-create-diagram').click(function(e) {

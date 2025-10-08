@@ -1,6 +1,7 @@
 import os
 import datetime
-from sqlalchemy import create_engine, Column, Integer, String, Date, JSON,Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Date, JSON,Boolean, Text, Table, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -17,6 +18,14 @@ engine = create_engine(DATABASE_URL)
 Base = declarative_base()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+macro_processo_processo = Table(
+    "macro_processo_processo",
+    Base.metadata,
+    Column("macro_processo_id", Integer, ForeignKey("macro_processos.id"), primary_key=True),
+    Column("processo_id", Integer, ForeignKey("processos.id"), primary_key=True),
+)
+
 
 def create_all_tables(): 
     Base.metadata.create_all(bind=engine)
@@ -57,15 +66,24 @@ class Processo(Base):
     id_area = Column(Integer, nullable=True)
     ordem = Column(Integer, nullable=True)
     titulo = Column(String(200), nullable=False)
-    data_publicacao = Column(Date, default=datetime.date(day=7, month=10, year=2005))
+    conteudo = Column(Text, nullable=True)  # campo sem limite de caracteres, agora armazena o XML BPMN inteiro
+    data_publicacao = Column(Date, default=datetime.date(2005, 10, 7))
+    macro_processos = relationship(
+        "MacroProcesso",
+        secondary=macro_processo_processo,
+        back_populates="processos"
+    )
 
-class Mapa(Base):
-    __tablename__ = 'mapas'
-    
+
+class MacroProcesso(Base):
+    __tablename__ = "macro_processos"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    id_proc = Column(Integer)
-    status = Column(Boolean, default=True)
-    XML = Column(String)
+    nome = Column(String(200), nullable=False)
+    processos = relationship(
+        "Processo",
+        secondary=macro_processo_processo,
+        back_populates="macro_processos"
+    )
     
 class Area(Base):
     __tablename__ = 'areas'
