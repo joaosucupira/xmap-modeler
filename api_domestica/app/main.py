@@ -46,10 +46,10 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # startup da aplicação
 @app.on_event("startup")
 def on_startup():
-    pass
+    
    #create_all_tables()
    #drop_and_create_all_tables() # CUIDADO! Isto irá apagar todos os dados existentes e criar as tabelas novamente.
-
+   pass
 # Endpoints
 @app.get("/")
 async def read_root():
