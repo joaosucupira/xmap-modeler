@@ -6,6 +6,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getDashboardData, DashboardData as DashboardDataType } from '@/services/api';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const getStatusBadgeVariant = (status: any): "default" | "secondary" | "destructive" | "outline" => {
   // Se for booleano, trata primeiro
@@ -61,95 +62,157 @@ export function Dashboard() {
   if (!data) {
     return <div className="text-center p-8">Não foi possível carregar os dados do dashboard.</div>;
   }
+// ...existing imports...
 
+function DashboardSkeleton() {
+  return (
+    <ScrollArea className="h-[calc(100vh-2rem)] w-full">
+      <div className="space-y-6 p-6">
+        {/* Skeleton para os Cards de Resumo */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-[100px]" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-[60px]" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Skeleton para o Gráfico */}
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-[200px]" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-72 w-full" />
+          </CardContent>
+        </Card>
+
+        {/* Skeleton para a Tabela */}
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-[150px] mb-4" />
+            <div className="flex gap-2">
+              <Skeleton className="h-10 w-20" />
+              <Skeleton className="h-10 w-20" />
+              <Skeleton className="h-10 w-20" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </ScrollArea>
+  );
+}
+
+// ...rest of your Dashboard component code...
   const statusList = ['todos', ...Object.keys(data.stats.statusCounts ?? {})];
 const chartData = Object.entries(data.stats.statusCounts).map(([status, count]) => ({
   status,
   count
 }));
-  return (
-    <div className="space-y-6">
-      {/* Cards de Resumo Global */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {Object.entries(data.stats.statusCounts).map(([status, count]) => (
-          <Card key={status}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium capitalize">{status || 'Sem Status'}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{count}</div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-  <Card>
-      <CardHeader>
-        <CardTitle>Distribuição de Status</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={Object.entries(data.stats.statusCounts).map(([status, count]) => ({
-                status,
-                count,
-              }))}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="status" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="count" fill="#28a745" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+ return (
+    <ScrollArea className="h-[calc(100vh-2rem)] w-full">
+      <div className="space-y-6 p-6">
+        {/* Cards de Resumo Global */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {Object.entries(data.stats.statusCounts).map(([status, count]) => (
+            <Card key={status}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium capitalize">{status || 'Sem Status'}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{count}</div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
-      </CardContent>
-    </Card>
-      {/* Filtros e Tabela de Processos Recentes */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Processos Recentes</CardTitle>
-          <Tabs value={activeFilter} onValueChange={setActiveFilter} className="mt-4">
-            <TabsList>
-              {statusList.map(status => (
-                <TabsTrigger key={status} value={status} className="capitalize">{status}</TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        </CardHeader>
-        <CardContent>
+
+        {/* Gráfico de Status */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Distribuição de Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={Object.entries(data.stats.statusCounts).map(([status, count]) => ({
+                    status,
+                    count,
+                  }))}
+                >
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="status" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="#28a745" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tabela de Processos */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Processos Recentes</CardTitle>
+            <Tabs value={activeFilter} onValueChange={setActiveFilter} className="mt-4">
+              <TabsList>
+                {statusList.map(status => (
+                  <TabsTrigger key={status} value={status} className="capitalize">
+                    {status}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </CardHeader>
+          <CardContent>
             <Table>
-              <TableHeader><TableRow><TableHead>Título</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Última Modificação</TableHead></TableRow></TableHeader>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Título</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Última Modificação</TableHead>
+                </TableRow>
+              </TableHeader>
               <TableBody>
                 {data.processosRecentes.length > 0 ? (
                   data.processosRecentes.map((processo) => (
                     <TableRow key={processo.id}>
                       <TableCell className="font-medium">{processo.titulo}</TableCell>
-                      <TableCell><Badge variant={getStatusBadgeVariant(processo.status)} className="capitalize">{processo.status || 'N/A'}</Badge></TableCell>
-                      <TableCell className="text-right">{new Date(processo.dataModificacao).toLocaleDateString('pt-BR')}</TableCell>
+                      <TableCell>
+                        <Badge variant={getStatusBadgeVariant(processo.status)} className="capitalize">
+                          {processo.status || 'N/A'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {new Date(processo.dataModificacao).toLocaleDateString('pt-BR')}
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
-                  <TableRow><TableCell colSpan={3} className="h-24 text-center">Nenhum processo encontrado para este filtro.</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={3} className="h-24 text-center">
+                      Nenhum processo encontrado para este filtro.
+                    </TableCell>
+                  </TableRow>
                 )}
               </TableBody>
             </Table>
-        </CardContent>
-      </Card>
-      
-    </div>
-  );
-}
-function DashboardSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Skeleton className="h-28 w-full" /><Skeleton className="h-28 w-full" /><Skeleton className="h-28 w-full" /><Skeleton className="h-28 w-full" />
+          </CardContent>
+        </Card>
       </div>
-      <Card>
-        <CardHeader><Skeleton className="h-8 w-1/4" /><div className="flex space-x-2 mt-4"><Skeleton className="h-10 w-20" /><Skeleton className="h-10 w-20" /></div></CardHeader>
-        <CardContent className="space-y-2"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></CardContent>
-      </Card>
-    </div>
+    </ScrollArea>
   );
 }

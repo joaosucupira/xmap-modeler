@@ -8,18 +8,15 @@ import {
   FileText, 
   Search,
   Settings,
-  User
+  User,
+  Plus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-
+import CreateProcess from "./CreateProcess";
 
 const Index = () => {
-  const [activeView, setActiveView] = useState<'dashboard' | 'canvas' | 'search'>('dashboard');
-  const handleNewProcess = () => {
-    // Abre o canvas em uma nova aba
-    window.open('http://localhost:8080', '_blank');
-  };
+  const [activeView, setActiveView] = useState<'dashboard' | 'canvas' | 'search' | 'new'>('dashboard');
 
   const renderMainContent = () => {
     switch (activeView) {
@@ -27,6 +24,20 @@ const Index = () => {
         return <Dashboard />;
       case 'canvas':
         return <ProcessCanvas />;
+         case 'new':
+      return (
+        <div className="h-full flex flex-col bg-gradient-subtle">
+          <div className="p-6 bg-card border-b shadow-soft">
+            <h1 className="text-2xl font-bold mb-4">Novo Processo</h1>
+          </div>
+          <div className="flex-1 p-6">
+            <CreateProcess onSuccess={(processoId) => {
+              // Redirect to dashboard after creation
+              setActiveView('dashboard');
+            }} />
+          </div>
+        </div>
+      );
       case 'search':
         return (
           <div className="h-full flex flex-col bg-gradient-subtle">
@@ -54,7 +65,8 @@ const Index = () => {
         {/* Logo/Header */}
         <div className="p-4 border-b">
           <h2 className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-Xmap          </h2>
+            Xmap
+          </h2>
           <p className="text-sm text-muted-foreground">Modelagem de Processos</p>
         </div>
 
@@ -85,16 +97,19 @@ Xmap          </h2>
               <Search className="h-4 w-4" />
               Buscar Processos
             </Button>
+            <Button
+              variant={activeView === 'new' ? 'default' : 'ghost'}
+              className="justify-start gap-2"
+              onClick={() => setActiveView('new')}
+            >
+              <Plus className="h-4 w-4" />
+              Novo Processo
+            </Button>
           </div>
         </div>
 
-        {/* Process Tree */}
-        <div className="flex-1 overflow-hidden">
-          <ProcessTree />
-        </div>
-
         {/* Bottom Actions */}
-        <div className="p-3 border-t space-y-2">
+        <div className="mt-auto p-3 border-t space-y-2">
           <Button variant="ghost" className="w-full justify-start gap-2">
             <Settings className="h-4 w-4" />
             Configurações

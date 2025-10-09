@@ -24,13 +24,15 @@ origins = [
     "http://127.0.0.1:4500",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
+    "http://host.docker.internal:4500",
 ]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=False,  # Must be False when using allow_origins=["*"]
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all headers
 )
 
 # Endpoints
@@ -45,7 +47,7 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 @app.on_event("startup")
 def on_startup():
     pass
-   # create_all_tables()
+   #create_all_tables()
    #drop_and_create_all_tables() # CUIDADO! Isto irá apagar todos os dados existentes e criar as tabelas novamente.
 
 # Endpoints
