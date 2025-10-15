@@ -7,7 +7,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from .utils import validate_entity
 from fastapi.responses import Response
 from .schemas import UsuarioCreate,UsuarioLogin,UsuarioOut,MetadadosBase,MetadadosCreate,MetadadosResponse
-from fastapi.staticfiles import StaticFiles  # Importar StaticFiles
+from fastapi.staticfiles import StaticFiles 
+from typing import List
+from pydantic import BaseModel
+from sqlalchemy import String  # Add this import
 
 from .auth import gerar_hash_senha, verificar_senha, criar_token_acesso
 
@@ -29,10 +32,10 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
-    allow_credentials=False,  # Must be False when using allow_origins=["*"]
-    allow_methods=["*"],  # Allow all methods
-    allow_headers=["*"],  # Allow all headers
+    allow_origins=["*"], 
+    allow_credentials=False,  
+    allow_methods=["*"],  
+    allow_headers=["*"], 
 )
 
 # Endpoints
@@ -182,15 +185,13 @@ async def get_mapa(mapa_id: int, db:Session = Depends(get_db)):
         "XML": mapa.XML 
         }}
 
-@app.get("/mapas/xml/{mapa_id}") # Nova rota para retornar apenas o XML
+@app.get("/mapas/xml/{mapa_id}")
 async def get_mapa_xml(mapa_id: int, db: Session = Depends(get_db)):
 
     mapa = validate_entity(db, mapa_id, Mapa)
-    
-    # Retorna o conteúdo do campo XML com o tipo de mídia correto
+
     return Response(content=mapa.XML, media_type="application/xml")
 
-# Documentos e Areas
 
 @app.get("/documentos/")
 async def get_documentos(db: Session = Depends(get_db)):
@@ -227,8 +228,38 @@ async def delete_area(area_id: int, db:Session = Depends(get_db)):
     db.commit()
     return {"message": "Area deletada com sucesso!"}
 
-# Em seu arquivo main.py
-# Em seu arquivo main.py
+
+
+class MetadadosOut(BaseModel):
+    id: int
+    nome: str
+    dados: List[str]
+    lgpd: str
+    id_processo: int
+    id_atividade: str
+
+    class Config:
+        orm_mode = True
+
+@app.get("/todos-metadados/", response_model=dict[str, List[MetadadosOut]])
+async def get_metadados(db: Session = Depends(get_db)):
+    """
+    Retorna todos os metadados sem duplicação.
+    """
+    metadados = db.query(Metadados).all()
+    return {
+        "metadados": [
+            {
+                "id": meta.id,
+                "nome": meta.nome,
+                "dados": meta.dados,
+                "lgpd": meta.lgpd,
+                "id_processo": meta.id_processo,
+                "id_atividade": meta.id_atividade
+            } 
+            for meta in metadados
+        ]
+    }
 
 @app.post("/metadados/", response_model=MetadadosResponse)
 def create_or_update_metadados(
@@ -237,88 +268,62 @@ def create_or_update_metadados(
 ):
     """
     Cria ou atualiza os metadados de uma atividade específica de um processo.
-    Versão com logs detalhados para depuração.
     """
-    print("\n--- INICIANDO REQUISIÇÃO PARA /metadados/ ---")
-    print(f"Recebido: id_processo={metadados.id_processo}, id_atividade='{metadados.id_atividade}', nome='{metadados.nome}'")
-
-    # Tenta encontrar o objeto existente com base na chave única
     try:
+        # Check if metadata already exists
         existing_metadata = db.query(Metadados).filter(
             Metadados.id_processo == metadados.id_processo,
             Metadados.id_atividade == metadados.id_atividade,
             Metadados.nome == metadados.nome
-        ).one_or_none() # Usar one_or_none() é mais explícito que .first()
+        ).first()
 
         if existing_metadata:
-            # Se encontrou, entra no modo de ATUALIZAÇÃO
-            print(f"--> ENCONTRADO registro existente com ID: {existing_metadata.id}. ATUALIZANDO.")
+            # Update existing metadata
             existing_metadata.lgpd = metadados.lgpd
             existing_metadata.dados = metadados.dados
             db_metadados_final = existing_metadata
-            
         else:
-            # Se NÃO encontrou, entra no modo de CRIAÇÃO
-            print("--> NÃO ENCONTRADO registro existente. CRIANDO NOVO.")
+            # Create new metadata
             db_metadados_novo = Metadados(**metadados.dict())
             db.add(db_metadados_novo)
             db_metadados_final = db_metadados_novo
 
-        # Salva as alterações (seja criação ou atualização)
         db.commit()
-        # Refresh para obter o estado final do objeto do banco de dados
         db.refresh(db_metadados_final)
-        
-        print(f"Operação concluída. ID final do registro: {db_metadados_final.id}")
-        print("--- FIM DA REQUISIÇÃO ---\n")
         
         return db_metadados_final
 
     except Exception as e:
-        print(f"!!!!!! OCORREU UM ERRO INESPERADO: {e} !!!!!!")
-        db.rollback() # Desfaz a transação em caso de erro
-        raise HTTPException(status_code=500, detail=str(e))
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao salvar metadados: {str(e)}"
+        )
 
-
-
-@app.put("/metadados/{metadado_id}")
-async def update_metadados(metadado_id: int, nome: str = None, lgpd: str = None, dados: dict = None, db: Session = Depends(get_db)):
-    metadado = db.query(Metadados).filter(Metadados.id == metadado_id).first()
+# Add search endpoint
+@app.get("/metadados/buscar/", response_model=dict[str, List[MetadadosOut]])
+async def buscar_metadados(
+    termo: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Busca metadados por termo em dados ou LGPD.
+    """
+    metadados = db.query(Metadados).filter(
+        (Metadados.dados.cast(String).ilike(f"%{termo}%")) |
+        (Metadados.lgpd.ilike(f"%{termo}%"))
+    ).all()
     
-    if not metadado:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Metadado não encontrado.")
-    
-    updated = False
-    if nome is not None:
-        metadado.nome = nome
-        updated = True
-    if lgpd is not None:
-        metadado.lgpd = lgpd
-        updated = True
-    if dados is not None:
-        metadado.dados = dados
-        updated = True
-
-    if updated:
-        db.commit()
-        db.refresh(metadado)
-
     return {
-        "message": "Metadado atualizado com sucesso!",
-        "metadado": {
-            "id": metadado.id,
-            "id_processo": metadado.id_processo,
-            "id_atividade": metadado.id_atividade,
-            "nome": metadado.nome,
-            "lgpd": metadado.lgpd,
-            "dados": metadado.dados
-        }
+        "metadados": [
+            {
+                "id": meta.id,
+                "nome": meta.nome,
+                "dados": meta.dados,
+                "lgpd": meta.lgpd,
+                "id_processo": meta.id_processo,
+                "id_atividade": meta.id_atividade
+            }
+            for meta in metadados
+        ]
     }
-
-@app.get("/todos-metadados/")
-async def get_metadados( db: Session = Depends(get_db)):
-    metadados = db.query(Metadados).all()
-
-    return {"metadados": [metadados for meta in metadados]}
-    
-
