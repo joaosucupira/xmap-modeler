@@ -1,7 +1,8 @@
+# Updated database.py with new classes
+
 import os
 import datetime
-from sqlalchemy import create_engine, Column, Integer, String, Date, JSON,Boolean
-from sqlalchemy import create_engine, Column, Integer, String, Date, JSON,Boolean, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, Date, JSON, Boolean, DateTime, ForeignKey
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -34,13 +35,11 @@ class Usuario(Base):
     email=Column(String(100),unique=True,index=True)
     senha_hash = Column(String)
 
-
 class Item(Base):
     __tablename__ = "items"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     nome_item = Column(String(100), index=True)
-
 
 class Metadados(Base):
     __tablename__ = "metadados"
@@ -54,7 +53,7 @@ class Metadados(Base):
 class Processo(Base):
     __tablename__ = "processos" 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    id_pai = Column(Integer, nullable=True)
+    id_pai = Column(Integer, ForeignKey('processos.id'), nullable=True)
     id_area = Column(Integer, nullable=True)
     ordem = Column(Integer, nullable=True)
     titulo = Column(String(200), nullable=False)
@@ -66,6 +65,7 @@ class Mapa(Base):
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     id_proc = Column(Integer)
+    titulo = Column(String(200), nullable=False)
     status = Column(Boolean, default=True)
     XML = Column(String)
     
@@ -85,9 +85,22 @@ class Documento(Base):
     nome_documento = Column(String)
     link = Column(String)
 
+# New classes for restructuring
+class MacroProcesso(Base):
+    __tablename__ = "macro_processos"
     
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    titulo = Column(String(200), nullable=False)
+    data_publicacao = Column(Date, default=datetime.date(day=7, month=10, year=2005))
+    data_criacao = Column(DateTime, default=datetime.datetime.utcnow)
 
+class MacroProcessoProcesso(Base):
+    __tablename__ = "macro_processo_processo"
     
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    macro_processo_id = Column(Integer, ForeignKey("macro_processos.id"), nullable=False)
+    processo_id = Column(Integer, ForeignKey("processos.id"), nullable=False)
+    ordem = Column(Integer, nullable=True)
 
 def get_db():
     db = SessionLocal()

@@ -1,3 +1,5 @@
+// Updated ProcessCanvas.tsx with add process buttons
+
 import { useState } from "react";
 import { 
   ExternalLink,
@@ -8,29 +10,297 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
+
+interface ProcessNode {
+  id: number;
+  titulo: string;
+  type: 'macro' | 'process' | 'map';
+  children?: ProcessNode[];
+  proc_id?: number;
+  data_criacao?: string;
+}
+
+interface ProcessMap {
+  id: number; // proc_id
+  map_id: number;
+  titulo: string;
+  data_criacao: string;
+}
+
+const fetchHierarchy = async (): Promise<ProcessNode[]> => {
+  const response = await fetch('http://localhost:8000/hierarchy/');
+  if (!response.ok) {
+    throw new Error('Failed to fetch hierarchy');
+  }
+  const data = await response.json();
+  return data.hierarchy;
+};
+
+const createMacroProcesso = async (titulo: string) => {
+  const response = await fetch('http://localhost:8000/macroprocessos/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ titulo }),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to create macroprocesso');
+  }
+  return response.json();
+};
+
+const createProcess = async ({ titulo, id_pai, ordem }: { titulo: string; id_pai?: number; ordem?: number }) => {
+  const body: any = { titulo };
+  if (id_pai !== undefined) body.id_pai = id_pai;
+  if (ordem !== undefined) body.ordem = ordem;
+  const response = await fetch('http://localhost:8000/processos/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to create process');
+  }
+  return response.json();
+};
+
+const createAssociation = async ({ macro_processo_id, processo_id, ordem }: { macro_processo_id: number; processo_id: number; ordem?: number }) => {
+  const body: any = { macro_processo_id, processo_id };
+  if (ordem !== undefined) body.ordem = ordem;
+  const response = await fetch('http://localhost:8000/macroprocesso_processos/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to create association');
+  }
+  return response.json();
+};
+
+const MapCard: React.FC<{ map: ProcessMap; onView: () => void; onEdit: () => void; formatLastModified: (dateStr: string) => string }> = ({ map, onView, onEdit, formatLastModified }) => (
+  <Card className="hover:shadow-md transition-shadow cursor-pointer">
+    <CardHeader className="pb-3">
+      <div className="flex items-center gap-2">
+        <FileText className="h-5 w-5 text-primary" />
+        <CardTitle className="text-lg">{map.titulo}</CardTitle>
+      </div>
+      <CardDescription>
+        Modificado {formatLastModified(map.data_criacao)}
+      </CardDescription>
+    </CardHeader>
+    <CardContent className="pt-0">
+      <div className="flex gap-2">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={onView}
+          className="flex-1"
+        >
+          <ArrowRight className="h-3 w-3 mr-1" />
+          Visualizar
+        </Button>
+        <Button 
+          variant="default" 
+          size="sm" 
+          onClick={onEdit}
+          className="flex-1"
+        >
+          <Settings className="h-3 w-3 mr-1" />
+          Editar
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
+);
+
+const ProcessSection: React.FC<{ node: ProcessNode; level: number; formatLastModified: (dateStr: string) => string; onAddProcess: (parentId: number) => void }> = ({ node, level, formatLastModified, onAddProcess }) => {
+  const maps: ProcessMap[] = [];
+  const subProcesses: ProcessNode[] = [];
+
+  if (node.children) {
+    node.children.forEach(child => {
+      if (child.type === 'map') {
+        maps.push({
+          id: child.proc_id!,
+          map_id: child.id,
+          titulo: child.titulo,
+          data_criacao: child.data_criacao || new Date().toISOString(),
+        });
+      } else if (child.type === 'process') {
+        subProcesses.push(child);
+      }
+    });
+  }
+
+  const handleViewMap = (processoId: number) => {
+    window.open(`http://localhost:8080?mapa=${processoId}&mode=view`, '_blank');
+  };
+
+  const handleEditMap = (processoId: number) => {
+    window.open(`http://localhost:8080?mapa=${processoId}&mode=edit`, '_blank');
+  };
+
+  return (
+    <div className={`space-y-4 ${level > 1 ? 'pl-6' : ''}`}>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-medium">{node.titulo}</h3>
+        <Button variant="outline" size="sm" onClick={() => onAddProcess(node.id)}>
+          <Plus className="h-4 w-4 mr-1" />
+          Add Processo
+        </Button>
+      </div>
+      {maps.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {maps.map(map => (
+            <MapCard 
+              key={map.map_id} 
+              map={map} 
+              onView={() => handleViewMap(map.id)} 
+              onEdit={() => handleEditMap(map.id)} 
+              formatLastModified={formatLastModified} 
+            />
+          ))}
+        </div>
+      )}
+      {subProcesses.map(sub => (
+        <ProcessSection key={sub.id} node={sub} level={level + 1} formatLastModified={formatLastModified} onAddProcess={onAddProcess} />
+      ))}
+      {maps.length === 0 && subProcesses.length === 0 && (
+        <p className="text-muted-foreground text-center py-4">Nenhum mapa neste processo.</p>
+      )}
+    </div>
+  );
+};
 
 export const ProcessCanvas = () => {
-  const [selectedMap, setSelectedMap] = useState<number | null>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [isMacroDialogOpen, setIsMacroDialogOpen] = useState(false);
+  const [macroTitulo, setMacroTitulo] = useState('');
+  const [isProcessDialogOpen, setIsProcessDialogOpen] = useState(false);
+  const [processTitulo, setProcessTitulo] = useState('');
+  const [processOrdem, setProcessOrdem] = useState('');
+  const [processParent, setProcessParent] = useState<{type: 'macro' | 'process', id: number} | null>(null);
 
-  const handleNewProcess = () => {
-    // Abre o canvas externo em uma nova aba
-    window.open('http://localhost:8080', '_blank');
+  const { data: hierarchy = [], isLoading } = useQuery<ProcessNode[]>({
+    queryKey: ['hierarchy'],
+    queryFn: fetchHierarchy,
+  });
+
+  const macroMutation = useMutation({
+    mutationFn: createMacroProcesso,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
+      setIsMacroDialogOpen(false);
+      setMacroTitulo('');
+      toast({
+        title: "Sucesso",
+        description: "MacroProcesso criado com sucesso!",
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Falha ao criar MacroProcesso.",
+      });
+    },
+  });
+
+  const processMutation = useMutation({
+    mutationFn: createProcess,
+    onSuccess: (data) => {
+      if (processParent?.type === 'macro') {
+        associationMutation.mutate({ macro_processo_id: processParent.id, processo_id: data.processo.id, ordem: processOrdem ? parseInt(processOrdem) : undefined });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
+        setIsProcessDialogOpen(false);
+        setProcessTitulo('');
+        setProcessOrdem('');
+        setProcessParent(null);
+        toast({
+          title: "Sucesso",
+          description: "Processo criado com sucesso!",
+        });
+      }
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Falha ao criar Processo.",
+      });
+    },
+  });
+
+  const associationMutation = useMutation({
+    mutationFn: createAssociation,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
+      setIsProcessDialogOpen(false);
+      setProcessTitulo('');
+      setProcessOrdem('');
+      setProcessParent(null);
+      toast({
+        title: "Sucesso",
+        description: "Processo criado e associado com sucesso!",
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Falha ao associar Processo.",
+      });
+    },
+  });
+
+  const handleMacroSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (macroTitulo.trim()) {
+      macroMutation.mutate(macroTitulo);
+    }
   };
 
-  const handleEditMap = (mapaId: number) => {
-    window.open(`http://localhost:8080?mapa=${mapaId}&mode=edit`, '_blank');
+  const handleProcessSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (processTitulo.trim()) {
+      processMutation.mutate({ titulo: processTitulo, id_pai: processParent?.type === 'process' ? processParent.id : undefined, ordem: processOrdem ? parseInt(processOrdem) : undefined });
+    }
   };
 
-  const handleViewMap = (mapaId: number) => {
-    window.open(`http://localhost:8080?mapa=${mapaId}&mode=view`, '_blank');
+  const handleAddProcess = (parentId: number, parentType: 'macro' | 'process') => {
+    setProcessParent({ type: parentType, id: parentId });
+    setIsProcessDialogOpen(true);
   };
 
-  // Mock de mapas (substitua por dados reais da API)
-  const mockMaps = [
-    { id: 1, name: "Processo de Vendas", lastModified: "2 horas atrás" ,map_id:1},
-    { id: 2, name: "Aprovação de Compras", lastModified: "1 dia atrás" ,map_id:2},
-    { id: 3, name: "Gestão de Leads", lastModified: "3 dias atrás" ,map_id:3},
-  ];
+  const formatLastModified = (dateStr: string) => {
+    const now = new Date();
+    const date = new Date(dateStr);
+    const diffHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffHours < 1) return 'Agora';
+    if (diffHours < 24) return `${diffHours} horas atrás`;
+    return `${Math.floor(diffHours / 24)} dias atrás`;
+  };
 
   return (
     <div className="h-full flex flex-col bg-gradient-subtle">
@@ -45,72 +315,117 @@ export const ProcessCanvas = () => {
               Crie e edite diagramas de processo BPMN
             </p>
           </div>
-          <Button 
-            onClick={handleNewProcess}
-            className="flex items-center gap-2 bg-gradient-primary hover:bg-gradient-primary/90"
-          >
-            <Plus className="h-4 w-4" />
-            Novo Processo
-            <ExternalLink className="h-3 w-3" />
-          </Button>
+          <Dialog open={isMacroDialogOpen} onOpenChange={setIsMacroDialogOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                className="flex items-center gap-2 bg-gradient-primary hover:bg-gradient-primary/90"
+              >
+                <Plus className="h-4 w-4" />
+                Novo Macro Processo
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Criar Novo Macro Processo</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleMacroSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="macro-titulo">Título</Label>
+                  <Input 
+                    id="macro-titulo" 
+                    value={macroTitulo} 
+                    onChange={(e) => setMacroTitulo(e.target.value)} 
+                    placeholder="Digite o título do Macro Processo" 
+                    required 
+                  />
+                </div>
+                <Button type="submit" disabled={macroMutation.isPending}>
+                  {macroMutation.isPending ? 'Criando...' : 'Criar'}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {mockMaps.map((map) => (
-            <Card key={map.id} className="hover:shadow-md transition-shadow cursor-pointer">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <CardTitle className="text-lg">{map.name}</CardTitle>
-                </div>
-                <CardDescription>
-                  Modificado {map.lastModified}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => handleViewMap(map.id)}
-                    className="flex-1"
-                  >
-                    <ArrowRight className="h-3 w-3 mr-1" />
-                    Visualizar
-                  </Button>
-                  <Button 
-                    variant="default" 
-                    size="sm" 
-                    onClick={() => handleEditMap(map.id)}
-                    className="flex-1"
-                  >
-                    <Settings className="h-3 w-3 mr-1" />
-                    Editar
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Empty State */}
-        {mockMaps.length === 0 && (
+      <div className="flex-1 p-6 overflow-auto">
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <p>Carregando processos...</p>
+          </div>
+        ) : hierarchy.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center">
             <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Nenhum processo encontrado</h3>
+            <h3 className="text-lg font-semibold mb-2">Nenhum macroprocesso encontrado</h3>
             <p className="text-muted-foreground mb-4">
-              Crie seu primeiro processo para começar
+              Crie seu primeiro macroprocesso para começar
             </p>
-            <Button onClick={handleNewProcess} className="flex items-center gap-2">
+            <Button onClick={() => setIsMacroDialogOpen(true)} className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
-              Criar Primeiro Processo
+              Criar Primeiro Macro Processo
             </Button>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {hierarchy.map((macro) => (
+              <div key={macro.id}>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">{macro.titulo}</h2>
+                  <Button variant="outline" size="sm" onClick={() => handleAddProcess(macro.id, 'macro')}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Processo
+                  </Button>
+                </div>
+                <Separator className="mb-4" />
+                {macro.children && macro.children.length > 0 ? (
+                  <div className="space-y-6">
+                    {macro.children.map(child => (
+                      <ProcessSection key={child.id} node={child} level={1} formatLastModified={formatLastModified} onAddProcess={(id) => handleAddProcess(id, 'process')} />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-center py-8">Nenhum processo neste macroprocesso ainda.</p>
+                )}
+              </div>
+            ))}
           </div>
         )}
       </div>
+
+      {/* Process Dialog */}
+      <Dialog open={isProcessDialogOpen} onOpenChange={setIsProcessDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Criar Novo Processo</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleProcessSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="process-titulo">Título</Label>
+              <Input 
+                id="process-titulo" 
+                value={processTitulo} 
+                onChange={(e) => setProcessTitulo(e.target.value)} 
+                placeholder="Digite o título do Processo" 
+                required 
+              />
+            </div>
+            <div>
+              <Label htmlFor="process-ordem">Ordem (opcional)</Label>
+              <Input 
+                id="process-ordem" 
+                type="number"
+                value={processOrdem} 
+                onChange={(e) => setProcessOrdem(e.target.value)} 
+                placeholder="Ordem" 
+              />
+            </div>
+            <Button type="submit" disabled={processMutation.isPending || associationMutation.isPending}>
+              {processMutation.isPending || associationMutation.isPending ? 'Criando...' : 'Criar'}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
