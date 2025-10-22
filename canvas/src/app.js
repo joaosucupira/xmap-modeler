@@ -165,7 +165,7 @@ async function loadMap(mapaId, mode = 'view') {
     } else if (mode === 'view') {
       // 🔹 Oculta barra de ferramentas e painel de propriedades
       document.querySelector('.djs-palette')?.classList.add('hidden');
-      document.querySelector('#js-properties-panel')?.classList.add('hidden');
+     // document.querySelector('#js-properties-panel')?.classList.add('hidden');
     }
   } catch (err) {
     console.error('Erro ao carregar mapa:', err);

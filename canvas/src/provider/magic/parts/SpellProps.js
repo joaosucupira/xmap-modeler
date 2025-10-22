@@ -35,9 +35,86 @@ const customCSS = `
     border-radius: 2px;
     padding: 4px 8px;
     margin-top: 5px;
+    font-weight: 500;
+  }
+  .viewer-upload-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  .viewer-message {
+    color: #666;
+    font-size: 12px;
+    font-style: italic;
+    margin-top: 5px;
+  }
+  
+  /* Melhorar aparência das fontes dos metadados e LGPD */
+  .bio-properties-panel-label {
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    color: #333 !important;
+    margin-bottom: 6px !important;
+  }
+  
+  .bio-properties-panel-input,
+  .bio-properties-panel-textfield,
+  .bio-properties-panel-select {
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    color: #444 !important;
+    border: 1px solid #ddd !important;
+    padding: 8px 12px !important;
+    border-radius: 4px !important;
+  }
+  
+  .bio-properties-panel-input:focus,
+  .bio-properties-panel-textfield:focus,
+  .bio-properties-panel-select:focus {
+    border-color: #0066cc !important;
+    box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.2) !important;
+    outline: none !important;
+  }
+  
+  .bio-properties-panel-input:disabled,
+  .bio-properties-panel-textfield:disabled,
+  .bio-properties-panel-select:disabled {
+    background-color: #f5f5f5 !important;
+    color: #666 !important;
+    font-weight: 500 !important;
+  }
+  
+  .bio-properties-panel-description {
+    font-size: 12px !important;
+    color: #666 !important;
+    font-weight: 400 !important;
+    margin-top: 4px !important;
+  }
+  
+  .bio-properties-panel-file-name {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #444 !important;
+    margin-top: 8px !important;
+  }
+  
+  .bio-properties-panel-file-name a {
+    color: #0066cc !important;
+    font-weight: 600 !important;
+    text-decoration: none !important;
+  }
+  
+  .bio-properties-panel-file-name a:hover {
+    text-decoration: underline !important;
+  }
+  
+  /* Melhorar texto dos dados gerados */
+  .bio-properties-panel-entry .bio-properties-panel-field-wrapper input {
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    line-height: 1.4 !important;
   }
 `;
-
 // Adiciona o CSS ao cabeçalho do documento uma única vez
 if (!document.getElementById('custom-properties-style')) {
   const style = document.createElement('style');
@@ -46,6 +123,12 @@ if (!document.getElementById('custom-properties-style')) {
   document.head.appendChild(style);
 }
 
+// Função para verificar se está no modo viewer
+const isViewerMode = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const mode = urlParams.get('mode') || 'view';
+  return mode === 'view';
+};
 
 export default function(element) {
 
@@ -69,11 +152,6 @@ export default function(element) {
 }
 
 /**
- * Componente para gerenciar uma lista de "Dados Gerados".
- *//**
- * Componente para gerenciar uma lista de "Dados Gerados".
- */
-/**
  * Componente para gerenciar uma lista de "Dados Gerados" usando serialização JSON.
  */
 function GeneratedData(props) {
@@ -85,6 +163,7 @@ function GeneratedData(props) {
   const modeling = useService('modeling');
   const translate = useService('translate');
   const debounce = useService('debounceInput');
+  const viewerMode = isViewerMode();
 
   // Usaremos uma propriedade com nome diferente para armazenar a string JSON.
   const JSON_PROPERTY = 'generatedDataJson';
@@ -117,6 +196,7 @@ function GeneratedData(props) {
    * Converte o array de valores para uma string JSON e salva no businessObject.
    */
   const saveValues = (values) => {
+    if (viewerMode) return; // Não salva no modo viewer
     modeling.updateProperties(element, {
       [JSON_PROPERTY]: JSON.stringify(values)
     });
@@ -124,6 +204,7 @@ function GeneratedData(props) {
 
   // Atualiza um valor específico no array
   const setValue = (value, index) => {
+    if (viewerMode) return; // Não permite edição no modo viewer
     // É importante pegar os valores atuais para não perder dados de outros campos
     const currentValues = [...getValues()];
     currentValues[index] = value;
@@ -132,6 +213,7 @@ function GeneratedData(props) {
 
   // Adiciona uma nova entrada vazia ao array
   const addEntry = () => {
+    if (viewerMode) return; // Não permite adicionar no modo viewer
     const oldValues = getValues();
     const newValues = [...oldValues, ''];
     saveValues(newValues);
@@ -139,6 +221,7 @@ function GeneratedData(props) {
 
   // Remove uma entrada do array pelo seu índice
   const removeEntry = (index) => {
+    if (viewerMode) return; // Não permite remover no modo viewer
     const oldValues = [...getValues()];
     let newValues = oldValues.filter((_, i) => i !== index);
 
@@ -151,6 +234,11 @@ function GeneratedData(props) {
   };
 
   const items = getValues();
+  
+  // No modo viewer, só mostra se há dados salvos
+  if (viewerMode && items.length === 1 && items[0] === '') {
+    return null;
+  }
 
   return html `
     <div class="bio-properties-panel-entry">
@@ -165,28 +253,30 @@ function GeneratedData(props) {
                 element=${element}
                 label=${''}
                 getValue=${() => item}
-                setValue=${(value) => setValue(value, index)}
+                setValue=${viewerMode ? () => {} : (value) => setValue(value, index)}
                 debounce=${debounce}
+                disabled=${viewerMode}
               />
               ${
-                // Só mostra o botão de remover se houver mais de um item
-                items.length > 1 && html`
+                // Só mostra o botão de remover se houver mais de um item e não estiver no modo viewer
+                items.length > 1 && !viewerMode && html`
                   <button type="button" class="bio-properties-panel-remove-btn" onClick=${() => removeEntry(index)}>X</button>
                 `
               }
             </div>
           `;
         })}
-        <button type="button" class="bio-properties-panel-add-btn" onClick=${addEntry}>
-          + Adicionar Dado
-        </button>
+        ${!viewerMode && html`
+          <button type="button" class="bio-properties-panel-add-btn" onClick=${addEntry}>
+            + Adicionar Dado
+          </button>
+        `}
       </div>
     </div>
   `;
 }
 
 function Charm(props) {
-  // ...código existente da função Charm...
   const {
     element,
     id
@@ -194,12 +284,14 @@ function Charm(props) {
 
   const modeling = useService('modeling');
   const translate = useService('translate');
+  const viewerMode = isViewerMode();
 
   const getValue = () => {
     return element.businessObject.charm || 'public';
   };
 
   const setValue = value => {
+    if (viewerMode) return; // Não permite edição no modo viewer
     return modeling.updateProperties(element, {
       charm: value
     });
@@ -224,12 +316,12 @@ function Charm(props) {
     description=${translate('Classificação de acordo com a Lei Geral de Proteção de Dados (LGPD)')}
     label=${translate('LGPD')}
     getValue=${getValue}
-    setValue=${setValue}
+    setValue=${viewerMode ? () => {} : setValue}
     getOptions=${getLGPDOptions}
+    disabled=${viewerMode}
   />`;
 }
 
-// ...existing code...
 // Componente de Anexo de Arquivo modificado para usar API
 function FileAttachment(props) {
   const {
@@ -238,23 +330,55 @@ function FileAttachment(props) {
   } = props;
   const modeling = useService('modeling');
   const translate = useService('translate');
+  const viewerMode = isViewerMode();
+
+  // Propriedade para armazenar array de arquivos como JSON
+  const FILES_PROPERTY = 'attachedFilesJson';
+
+  /**
+   * Lê os arquivos salvos do businessObject
+   */
+  const getFiles = () => {
+    const filesJson = element.businessObject.get(FILES_PROPERTY);
+    if (filesJson) {
+      try {
+        const files = JSON.parse(filesJson);
+        return Array.isArray(files) ? files : [];
+      } catch (e) {
+        console.error('Erro ao fazer parse dos arquivos:', e);
+        return [];
+      }
+    }
+    return [];
+  };
+
+  /**
+   * Salva a lista de arquivos no businessObject
+   */
+  const saveFiles = (files) => {
+    if (viewerMode) return;
+    modeling.updateProperties(element, {
+      [FILES_PROPERTY]: JSON.stringify(files)
+    });
+  };
 
   const handleFileChange = async (event) => {
+    if (viewerMode) return;
+    
     const file = event.target.files[0];
     if (!file) {
       return;
     }
 
     const formData = new FormData();
-    formData.append('file', file); // 'file' é a chave que a API espera
+    formData.append('file', file);
 
     try {
-      // Mostra um feedback de upload (opcional)
-      modeling.updateProperties(element, {
-        fileName: 'Enviando...'
-      });
+      // Mostra feedback de upload
+      const currentFiles = getFiles();
+      const tempFiles = [...currentFiles, { fileName: 'Enviando...', fileUrl: '', uploading: true }];
+      saveFiles(tempFiles);
 
-      // **URL atualizada para o novo endpoint no router 'canvas'**
       const response = await fetch('http://localhost:8000/canvas/upload', {
         method: 'POST',
         body: formData,
@@ -265,45 +389,92 @@ function FileAttachment(props) {
       }
 
       const result = await response.json();
-
-      // Constrói a URL completa para o link
       const fullFileUrl = `http://localhost:8000${result.fileUrl}`;
 
-      // Salva o nome e a URL completa do arquivo retornados pela API
-      modeling.updateProperties(element, {
+      // Remove o arquivo temporário e adiciona o arquivo real
+      const updatedFiles = currentFiles.filter(f => !f.uploading);
+      updatedFiles.push({
         fileName: result.fileName,
-        fileUrl: fullFileUrl
+        fileUrl: fullFileUrl,
+        uploadDate: new Date().toISOString()
       });
+
+      saveFiles(updatedFiles);
+
+      // Limpa o input para permitir upload do mesmo arquivo novamente
+      event.target.value = '';
 
     } catch (error) {
       console.error('Erro no upload:', error);
       alert('Não foi possível anexar o arquivo.');
-      // Limpa o feedback de erro
-      modeling.updateProperties(element, {
-        fileName: undefined,
-        fileUrl: undefined
-      });
+      
+      // Remove arquivo temporário em caso de erro
+      const filesWithoutTemp = getFiles().filter(f => !f.uploading);
+      saveFiles(filesWithoutTemp);
     }
   };
 
-  const fileName = element.businessObject.get('fileName');
-  const fileUrl = element.businessObject.get('fileUrl');
+  const removeFile = (index) => {
+    if (viewerMode) return;
+    const currentFiles = getFiles();
+    const updatedFiles = currentFiles.filter((_, i) => i !== index);
+    saveFiles(updatedFiles);
+  };
+
+  const files = getFiles();
 
   return html `
     <div class="bio-properties-panel-entry">
       <label for=${'cam-input-' + id} class="bio-properties-panel-label">
-        ${translate('Anexar Documento')}
+        ${translate('Anexar Documentos')}
       </label>
       <div class="bio-properties-panel-field-wrapper">
-        <input
-          id=${'cam-input-' + id}
-          type="file"
-          class="bio-properties-panel-input"
-          onChange=${handleFileChange}
-        />
-        ${fileUrl && html`
-          <p class="bio-properties-panel-file-name">
-            Arquivo atual: <a href=${fileUrl} target="_blank" rel="noopener noreferrer">${fileName}</a>
+        ${!viewerMode && html`
+          <input
+            id=${'cam-input-' + id}
+            type="file"
+            class="bio-properties-panel-input"
+            onChange=${handleFileChange}
+            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.txt"
+          />
+        `}
+        
+        ${files.length > 0 && html`
+          <div class="attached-files-list">
+            ${files.map((file, index) => html`
+              <div key=${index} class="attached-file-item">
+                <div class="file-info">
+                  ${file.uploading ? html`
+                    <span class="file-name uploading">${file.fileName}</span>
+                  ` : html`
+                    <a href=${file.fileUrl} target="_blank" rel="noopener noreferrer" class="file-link">
+                      ${file.fileName}
+                    </a>
+                  `}
+                  ${file.uploadDate && html`
+                    <small class="upload-date">
+                      ${new Date(file.uploadDate).toLocaleDateString('pt-BR')}
+                    </small>
+                  `}
+                </div>
+                ${!viewerMode && !file.uploading && html`
+                  <button 
+                    type="button" 
+                    class="remove-file-btn" 
+                    onClick=${() => removeFile(index)}
+                    title="Remover arquivo"
+                  >
+                    ×
+                  </button>
+                `}
+              </div>
+            `)}
+          </div>
+        `}
+        
+        ${viewerMode && files.length === 0 && html`
+          <p class="viewer-message">
+            Nenhum arquivo anexado
           </p>
         `}
       </div>
