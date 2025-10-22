@@ -15,60 +15,55 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useQuery } from "@tanstack/react-query";
 
 interface ProcessNode {
-  id: string;
-  name: string;
-  type: 'folder' | 'process';
+  id: number;
+  titulo: string;
+  type: 'macro' | 'process';
   children?: ProcessNode[];
+  has_map?: boolean;
   isExpanded?: boolean;
 }
 
-const mockProcesses: ProcessNode[] = [
-  {
-    id: '1',
-    name: 'Processos de Vendas',
-    type: 'folder',
-    isExpanded: true,
-    children: [
-      { id: '1-1', name: 'Prospecção de Clientes', type: 'process' },
-      { id: '1-2', name: 'Negociação', type: 'process' },
-      { id: '1-3', name: 'Fechamento', type: 'process' },
-    ]
-  },
-  {
-    id: '2',
-    name: 'Processos de RH',
-    type: 'folder',
-    isExpanded: false,
-    children: [
-      { id: '2-1', name: 'Recrutamento', type: 'process' },
-      { id: '2-2', name: 'Onboarding', type: 'process' },
-    ]
-  },
-  {
-    id: '3',
-    name: 'Processo de Compras',
-    type: 'process'
+const fetchHierarchy = async (): Promise<ProcessNode[]> => {
+  const response = await fetch('http://localhost:8000/hierarchy/');
+  if (!response.ok) {
+    throw new Error('Failed to fetch hierarchy');
   }
-];
+  const data = await response.json();
+  // Add isExpanded to macros by default
+  return data.hierarchy.map((node: ProcessNode) => ({
+    ...node,
+    isExpanded: true,
+  }));
+};
 
 export const ProcessTree = () => {
-  const [processes, setProcesses] = useState<ProcessNode[]>(mockProcesses);
-  const [selectedId, setSelectedId] = useState<string | null>('1-1');
+  const { data: processes = [], isLoading, error } = useQuery<ProcessNode[]>({
+    queryKey: ['hierarchy'],
+    queryFn: fetchHierarchy,
+  });
 
-  const toggleFolder = (id: string) => {
-    setProcesses(prev => prev.map(process => 
-      process.id === id 
-        ? { ...process, isExpanded: !process.isExpanded }
-        : process
-    ));
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [expandedState, setExpandedState] = useState<Record<number, boolean>>({});
+
+  const toggleFolder = (id: number) => {
+    setExpandedState(prev => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  const isExpanded = (node: ProcessNode) => {
+    return expandedState[node.id] ?? node.isExpanded ?? false;
   };
 
   const renderNode = (node: ProcessNode, level: number = 0) => {
-    const isSelected = selectedId === node.id;
-    const isFolder = node.type === 'folder';
+    const selected = selectedId === node.id;
+    const isFolder = node.type === 'macro' || (node.type === 'process' && node.children && node.children.length > 0);
     const hasChildren = node.children && node.children.length > 0;
+    const nodeExpanded = isExpanded(node);
 
     return (
       <div key={node.id} className="w-full">
@@ -76,7 +71,7 @@ export const ProcessTree = () => {
           className={`
             flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer
             transition-colors duration-200 group
-            ${isSelected 
+            ${selected 
               ? 'bg-accent text-accent-foreground font-medium' 
               : 'hover:bg-muted/50'
             }
@@ -100,7 +95,7 @@ export const ProcessTree = () => {
                 toggleFolder(node.id);
               }}
             >
-              {node.isExpanded ? (
+              {nodeExpanded ? (
                 <ChevronDown className="h-3 w-3" />
               ) : (
                 <ChevronRight className="h-3 w-3" />
@@ -111,7 +106,7 @@ export const ProcessTree = () => {
           {!hasChildren && <div className="w-4" />}
           
           {isFolder ? (
-            node.isExpanded ? (
+            nodeExpanded ? (
               <FolderOpen className="h-4 w-4 text-muted-foreground" />
             ) : (
               <Folder className="h-4 w-4 text-muted-foreground" />
@@ -120,7 +115,7 @@ export const ProcessTree = () => {
             <FileText className="h-4 w-4 text-primary" />
           )}
           
-          <span className="text-sm flex-1 truncate">{node.name}</span>
+          <span className="text-sm flex-1 truncate">{node.titulo}</span>
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -140,7 +135,7 @@ export const ProcessTree = () => {
           </DropdownMenu>
         </div>
         
-        {isFolder && node.isExpanded && hasChildren && (
+        {isFolder && nodeExpanded && hasChildren && (
           <div>
             {node.children!.map(child => renderNode(child, level + 1))}
           </div>
@@ -148,6 +143,14 @@ export const ProcessTree = () => {
       </div>
     );
   };
+
+  if (isLoading) {
+    return <div className="p-4">Carregando árvore de processos...</div>;
+  }
+
+  if (error) {
+    return <div className="p-4 text-destructive">Erro ao carregar hierarquia: {error.message}</div>;
+  }
 
   return (
     <div className="h-full flex flex-col">

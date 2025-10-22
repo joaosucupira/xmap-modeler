@@ -1,8 +1,10 @@
+# api_domestica/app/main.py
+# (Modified to add /hierarchy/ endpoint)
 
 from fastapi import FastAPI, Depends, HTTPException,status
 from sqlalchemy.orm import Session
 
-from .database import Metadados, create_all_tables, drop_and_create_all_tables,get_db, Usuario, Item, Processo, Mapa, Area, Documento
+from .database import Metadados, create_all_tables, drop_and_create_all_tables,get_db, Usuario, Item, Processo, Mapa, Area, Documento, MacroProcesso, MacroProcessoProcesso
 from fastapi.middleware.cors import CORSMiddleware
 from .utils import validate_entity
 from fastapi.responses import Response
@@ -118,7 +120,7 @@ async def create_processo(id_pai: int = None, id_area: int = None, ordem: int = 
 @app.get("/processos/")
 async def get_processos(db: Session = Depends(get_db)):
     processos = db.query(Processo).all()
-    return {"processos": [{"id": proc.id, "id_pai": proc.id_pai, "id_area": proc.id_area, "ordem": proc.ordem, "titulo": proc.titulo, "data_publicacao": proc.data_publicacao} for proc in processos]}
+    return {"processos": [{"id": proc.id, "id_pai": proc.id_pai, "id_area": proc.id_area, "ordem": proc.ordem, "titulo": proc.titulo, "data_publicacao": proc.data_publicacao, "data_criacao": proc.data_criacao} for proc in processos]}
 
 @app.get("/processos/{processo_id}")
 async def get_processo(processo_id: int, db: Session = Depends(get_db)):
@@ -128,8 +130,11 @@ async def get_processo(processo_id: int, db: Session = Depends(get_db)):
 
 @app.get("/processos/{processo_id}/{filhos}")
 async def get_processo_filhos(processo_id: int, filhos: bool = False, db: Session = Depends(get_db)):
-    filhos = db.query(Processo).filter(Processo.id_pai == processo_id).all() if filhos else []
-    return {"filhos": [{"id": filho.id, "id_pai": filho.id_pai, "id_area": filho.id_area, "ordem": filho.ordem, "titulo": filho.titulo, "data_publicacao": filho.data_publicacao} for filho in filhos]}
+    if filhos:
+        filhos_list = db.query(Processo).filter(Processo.id_pai == processo_id).all()
+        filhos_sorted = sorted(filhos_list, key=lambda f: f.ordem or 0)
+        return {"filhos": [{"id": filho.id, "id_pai": filho.id_pai, "id_area": filho.id_area, "ordem": filho.ordem, "titulo": filho.titulo, "data_publicacao": filho.data_publicacao, "data_criacao": filho.data_criacao} for filho in filhos_sorted]}
+    return []
 
 @app.delete("/processos/{processo_id}")
 async def delete_processo(processo_id: int, db: Session = Depends(get_db)):
@@ -161,19 +166,20 @@ async def update_processo(processo_id: int, id_pai: int = None, id_area: int = N
     db.refresh(proc)
     return {"message": "Processo atualizado com sucesso!", "processo": {"id": proc.id, "id_pai": proc.id_pai, "id_area": proc.id_area, "ordem": proc.ordem, "titulo": proc.titulo, "data_publicacao": proc.data_publicacao}}
 
+
 # Mapas
 @app.post("/mapas/")
-async def create_mapa(id_proc: int, XML: str, db: Session = Depends(get_db)):
-    mapa = Mapa(id_proc=id_proc, XML=XML)
+async def create_mapa(id_proc: int, titulo: str, XML: str, db: Session = Depends(get_db)):
+    mapa = Mapa(id_proc=id_proc, titulo=titulo, XML=XML)
     db.add(mapa)
     db.commit()
     db.refresh(mapa)
-    return {"message": "Mapa criado com sucesso!", "mapa": {"id": mapa.id, "id_proc": mapa.id_proc, "XML": mapa.XML}}
+    return {"message": "Mapa criado com sucesso!", "mapa": {"id": mapa.id, "id_proc": mapa.id_proc, "titulo": mapa.titulo, "XML": mapa.XML}}
 
 @app.get("/mapas/")
 async def get_mapas(db: Session = Depends(get_db)):
     mapas = db.query(Mapa).all()
-    return {"mapas": [{"id": mapa.id, "id_proc": mapa.id_proc, "XML": mapa.XML} for mapa in mapas]}
+    return {"mapas": [{"id": mapa.id, "id_proc": mapa.id_proc, "XML": mapa.XML, "titulo": mapa.titulo} for mapa in mapas]}
 
 @app.get("/mapas/{mapa_id}")
 async def get_mapa(mapa_id: int, db:Session = Depends(get_db)):
@@ -182,7 +188,8 @@ async def get_mapa(mapa_id: int, db:Session = Depends(get_db)):
     return {"mapa": {
         "id": mapa.id,
         "proc_id": mapa.id_proc,
-        "XML": mapa.XML 
+        "XML": mapa.XML ,
+        "titulo": mapa.titulo
         }}
 
 @app.get("/mapas/xml/{mapa_id}")

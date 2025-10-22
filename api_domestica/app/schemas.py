@@ -33,3 +33,10 @@ class MetadadosResponse(MetadadosBase):
 
     class Config:
         orm_mode = True # Permite que o Pydantic leia dados de objetos SQLAlchemy
+
+from pydantic import BaseModel
+from typing import Union  # For older Python, but in 3.12, can use |
+
+class MacroCreate(BaseModel):
+    titulo: str
+    data_publicacao: Union[str, None] = None  # Or str | None = None in Python 3.10+
