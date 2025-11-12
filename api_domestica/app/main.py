@@ -13,6 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from typing import List
 from pydantic import BaseModel
 from sqlalchemy import String  # Add this import
+from .auth import AUTH_ENABLED, get_current_active_user
 
 from .auth import gerar_hash_senha, verificar_senha, criar_token_acesso
 
@@ -52,7 +53,7 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 @app.on_event("startup")
 def on_startup():
     
-   #create_all_tables()
+   create_all_tables()
    #drop_and_create_all_tables() # CUIDADO! Isto irá apagar todos os dados existentes e criar as tabelas novamente.
    pass
 # Endpoints
@@ -71,29 +72,56 @@ async def get_items_data(db: Session = Depends(get_db)):
     items = db.query(Item).all()
     return {"items": [{"id": item.id, "nome_item": item.nome_item} for item in items]}
 
+# ... código existente ...
+
 @app.post("/register", response_model=UsuarioOut)
 def registrar_usuario(usuario: UsuarioCreate, db: Session = Depends(get_db)):
-    usuario_existente = db.query(Usuario).filter(Usuario.email == usuario.email).first()
-    if usuario_existente:
-        raise HTTPException(status_code=400, detail="Email já registrado")
-    novo_usuario = Usuario(
-        nome=usuario.nome,
-        email=usuario.email,
-        senha_hash=gerar_hash_senha(usuario.senha)
-    )
-    db.add(novo_usuario)
-    db.commit()
-    db.refresh(novo_usuario)
-    return novo_usuario
+    try:
+        # Verificar se usuário já existe
+        usuario_existente = db.query(Usuario).filter(Usuario.email == usuario.email).first()
+        if usuario_existente:
+            raise HTTPException(status_code=400, detail="Email já registrado")
+        
+        # Validações adicionais
+        if not usuario.nome or not usuario.nome.strip():
+            raise HTTPException(status_code=400, detail="Nome é obrigatório")
+        
+        if not usuario.email or not usuario.email.strip():
+            raise HTTPException(status_code=400, detail="Email é obrigatório")
+        
+        # Criar novo usuário (a validação da senha é feita em gerar_hash_senha)
+        novo_usuario = Usuario(
+            nome=usuario.nome.strip(),
+            email=usuario.email.strip().lower(),
+            senha_hash=gerar_hash_senha(usuario.senha)
+        )
+        db.add(novo_usuario)
+        db.commit()
+        db.refresh(novo_usuario)
+        return novo_usuario
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Erro ao registrar usuário: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro interno do servidor")
 
 @app.post("/login")
 def login(usuario: UsuarioLogin, db: Session = Depends(get_db)):
-    db_usuario = db.query(Usuario).filter(Usuario.email == usuario.email).first()
-    if not db_usuario or not verificar_senha(usuario.senha, db_usuario.senha_hash):
-        raise HTTPException(status_code=401, detail="Credenciais inválidas")
-    
-    token = criar_token_acesso(data={"sub": db_usuario.email})
-    return {"access_token": token, "token_type": "bearer"}
+    try:
+        db_usuario = db.query(Usuario).filter(Usuario.email == usuario.email.strip().lower()).first()
+        if not db_usuario or not verificar_senha(usuario.senha, db_usuario.senha_hash):
+            raise HTTPException(status_code=401, detail="Credenciais inválidas")
+        
+        token = criar_token_acesso(data={"sub": db_usuario.email})
+        return {"access_token": token, "token_type": "bearer"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Erro no login: {str(e)}")
+        raise HTTPException(status_code=500, detail="Erro interno do servidor")
 
 
 @app.post("/usuarios/")
@@ -169,13 +197,35 @@ async def update_processo(processo_id: int, id_pai: int = None, id_area: int = N
 
 # Mapas
 @app.post("/mapas/")
-async def create_mapa(id_proc: int, titulo: str, XML: str, db: Session = Depends(get_db)):
+async def create_mapa(
+    id_proc: int, 
+    titulo: str = None,  # Tornar opcional com valor padrão
+    XML: str = "", 
+    db: Session = Depends(get_db)
+):
+    # Se não passar título, gerar automaticamente
+    if not titulo or not titulo.strip():
+        # Buscar o processo para pegar o título
+        processo = db.query(Processo).filter(Processo.id == id_proc).first()
+        if processo and processo.titulo:
+            titulo = f"Mapa - {processo.titulo}"
+        else:
+            titulo = f"Mapa do Processo #{id_proc}"
+    
     mapa = Mapa(id_proc=id_proc, titulo=titulo, XML=XML)
     db.add(mapa)
     db.commit()
     db.refresh(mapa)
-    return {"message": "Mapa criado com sucesso!", "mapa": {"id": mapa.id, "id_proc": mapa.id_proc, "titulo": mapa.titulo, "XML": mapa.XML}}
-
+    
+    return {
+        "message": "Mapa criado com sucesso!", 
+        "mapa": {
+            "id": mapa.id, 
+            "id_proc": mapa.id_proc, 
+            "titulo": mapa.titulo, 
+            "XML": mapa.XML
+        }
+    }
 @app.get("/mapas/")
 async def get_mapas(db: Session = Depends(get_db)):
     mapas = db.query(Mapa).all()
@@ -249,7 +299,7 @@ class MetadadosOut(BaseModel):
         orm_mode = True
 
 @app.get("/todos-metadados/", response_model=dict[str, List[MetadadosOut]])
-async def get_metadados(db: Session = Depends(get_db)):
+async def get_metadados(db: Session = Depends(get_db), current_user = Depends(get_current_active_user)):  # Protegido
     """
     Retorna todos os metadados sem duplicação.
     """
@@ -334,3 +384,30 @@ async def buscar_metadados(
             for meta in metadados
         ]
     }
+
+# Endpoint para verificar status da autenticação
+@app.get("/auth/status")
+async def auth_status():
+    return {
+        "auth_enabled": AUTH_ENABLED,
+        "message": "Autenticação ativa" if AUTH_ENABLED else "Autenticação desabilitada"
+    }
+
+# Endpoint para verificar usuário logado
+@app.get("/auth/me")
+async def get_me(current_user = Depends(get_current_active_user)):
+    return {
+        "user": {
+            "id": current_user.id,
+            "nome": current_user.nome,
+            "email": current_user.email
+        },
+        "auth_enabled": AUTH_ENABLED
+    }
+
+# Logout (apenas limpa token no frontend)
+@app.post("/auth/logout")
+async def logout():
+    return {"message": "Logout realizado com sucesso"}
+
+# ...existing endpoints..

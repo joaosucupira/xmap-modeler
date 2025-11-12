@@ -55,8 +55,9 @@ function addSaveButton(mapaId) {
   saveButton.textContent = 'Salvar Mapa';
   saveButton.className = 'save-button';
   document.querySelector('.buttons').appendChild(saveButton);
+// ...existing code...
 
-  saveButton.addEventListener('click', async () => {
+saveButton.addEventListener('click', async () => {
     try {
       // ETAPA 1: Coletar todos os metadados do diagrama
       // ----------------------------------------------------
@@ -81,10 +82,13 @@ function addSaveButton(mapaId) {
             }
           }
           
+          // 🔹 Pega o nome da tarefa do BPMN
+          const taskName = bizObj.name || element.id || 'Sem nome';
+          
           metadataPayloads.push({
             id_processo: parseInt(mapaId, 10), // Garante que seja um número
             id_atividade: element.id, // O ID do elemento BPMN
-            nome: "generatedData",
+            nome: taskName, // 🔹 AQUI: Agora usa o nome da tarefa ao invés de "generatedData"
             lgpd: bizObj.charm || 'public', // Usa o valor de 'charm' ou um padrão
             dados: dados // O array de dados
           });
@@ -97,6 +101,7 @@ function addSaveButton(mapaId) {
       // ----------------------------------------------------
       if (metadataPayloads.length > 0) {
         console.log('Enviando metadados para a API...');
+        console.log('Payloads:', JSON.stringify(metadataPayloads, null, 2)); // 🔹 Log para debug
         
         // Cria uma promessa de 'fetch' para cada metadado
         const savePromises = metadataPayloads.map(payload => {
@@ -147,7 +152,11 @@ function addSaveButton(mapaId) {
       console.error('Erro durante o processo de salvar:', err);
       alert(`Erro ao salvar: ${err.message}`);
     }
-  });
+}
+
+// ...existing code...
+
+);
 }
 
 

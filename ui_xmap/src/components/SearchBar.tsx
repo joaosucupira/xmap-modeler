@@ -1,97 +1,55 @@
-import { Search, Filter, Clock, TrendingUp, X, Loader2, FileText, Settings, Users, Building, FolderOpen, Package } from "lucide-react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { Search, Filter, Clock, TrendingUp, X, Loader2, FileText, Settings, Tag } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect, useRef } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { debounce } from "lodash";
+
+interface Metadado {
+  id: number;
+  nome: string;
+  dados: string[];
+  lgpd: string;
+  id_processo: number;
+  id_atividade: string;
+}
 
 interface SearchResult {
-  id: number;
-  titulo: string;
-  subtitulo: string;
-  categoria: string;
-  tags: string[];
-  tabela: string;
-  relevancia: number;
-  data_modificacao?: string;
-  colunas_encontradas?: string[];
-  termos_busca?: string[];
-  dados_extras?: any;
-  link_api: string;
-}
-
-interface SearchResponse {
-  resultados: SearchResult[];
-  total_encontrados: number;
-  termos_busca: string[];
-  tabelas_pesquisadas: string[];
-  metadata: {
-    ordenacao: string;
-    limite_por_tabela: number;
-  };
-}
-
-interface Suggestion {
-  texto: string;
-  categoria: string;
-  tipo: string;
-}
-
-interface SearchFilters {
-  tabelas: string[];
-  ordenacao: 'relevancia' | 'alfabetico' | 'data';
-  limite: number;
+  metadados: Metadado[];
 }
 
 const API_URL = "http://localhost:8000";
 
-const TABELAS_DISPONIVEIS = [
-  { id: 'processos', label: 'Processos', color: 'bg-blue-100 text-blue-800', icon: FileText },
-  { id: 'metadados', label: 'Metadados', color: 'bg-green-100 text-green-800', icon: Settings },
-  { id: 'usuarios', label: 'Usuários', color: 'bg-purple-100 text-purple-800', icon: Users },
-  { id: 'areas', label: 'Áreas', color: 'bg-orange-100 text-orange-800', icon: Building },
-  { id: 'documentos', label: 'Documentos', color: 'bg-red-100 text-red-800', icon: FolderOpen },
-  { id: 'items', label: 'Itens', color: 'bg-gray-100 text-gray-800', icon: Package }
+const TIPOS_BUSCA = [
+  { value: 'metadados', label: 'Busca por Metadados', description: 'Busca em metadados e dados LGPD' },
+  { value: 'processos', label: 'Busca por Processos', description: 'Busca processos que contêm dados específicos' }
 ];
 
 const ORDENACAO_OPTIONS = [
   { value: 'relevancia', label: 'Relevância', icon: TrendingUp },
   { value: 'alfabetico', label: 'Alfabética', icon: Search },
-  { value: 'data', label: 'Data', icon: Clock }
-];
-
-// Nova opção de tipo de busca
-const TIPOS_BUSCA = [
-  { value: 'geral', label: 'Busca Geral', description: 'Busca em todas as tabelas' },
-  { value: 'metadados', label: 'Processos por Metadados', description: 'Encontra processos que contêm dados específicos' }
+  { value: 'recente', label: 'Mais Recente', icon: Clock }
 ];
 
 export const SearchBar = () => {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<Metadado[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [tipoBusca, setTipoBusca] = useState<'metadados' | 'processos'>('metadados');
+  const [ordenacao, setOrdenacao] = useState<'relevancia' | 'alfabetico' | 'recente'>('relevancia');
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
-  const [tipoBusca, setTipoBusca] = useState<'geral' | 'metadados'>('geral');
-  const [filters, setFilters] = useState<SearchFilters>({
-    tabelas: [],
-    ordenacao: 'relevancia',
-    limite: 20
-  });
-
+  
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<NodeJS.Timeout>();
 
   // Carrega histórico do localStorage
   useEffect(() => {
@@ -101,193 +59,101 @@ export const SearchBar = () => {
     }
   }, []);
 
-  // Sugestões em tempo real
-  useEffect(() => {
-    if (searchQuery.length >= 1 && searchQuery.length < 3) {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      
-      debounceRef.current = setTimeout(async () => {
-        try {
-          const response = await fetch(
-            `${API_URL}/banco/sugestoes/?q=${encodeURIComponent(searchQuery)}&limite=8`
-          );
-          if (response.ok) {
-            const data = await response.json();
-            setSuggestions(data.sugestoes || []);
-            setShowSuggestions(true);
-          }
-        } catch (err) {
-          console.error('Erro ao buscar sugestões:', err);
-        }
-      }, 200);
-    } else {
-      setSuggestions([]);
-      setShowSuggestions(false);
-    }
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [searchQuery]);
-
-  // Busca principal modificada
- // ...existing code até linha 133...
-
-  // ...existing code até a linha do useEffect...
-
-  // Busca principal - volta para o endpoint original
-  useEffect(() => {
-    if (!searchQuery || searchQuery.trim().length < 3) {
+  const searchMetadados = async (searchTerm: string) => {
+    if (!searchTerm.trim() || searchTerm.length < 2) {
       setResults([]);
       setError(null);
       return;
     }
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    
-    debounceRef.current = setTimeout(async () => {
-      setLoading(true);
-      setError(null);
-      setShowSuggestions(false);
+    setLoading(true);
+    setError(null);
 
-      try {
-        let endpoint = '';
-        const params = new URLSearchParams({
-          q: searchQuery.trim(),
-          limite: filters.limite.toString()
-        });
+    try {
+      console.log('🔍 Buscando por metadados:', searchTerm);
+      const url = `${API_URL}/metadados/buscar/?termo=${encodeURIComponent(searchTerm)}`;
+      console.log('📡 URL da requisição:', url);
 
-        if (tipoBusca === 'metadados') {
-          // Usa o endpoint corrigido de busca por metadados
-          endpoint = `${API_URL}/banco/busca-por-metadados/?${params}`;
-          console.log('Buscando por metadados:', endpoint);
-        } else {
-          // Busca geral
-          params.append('ordenar_por', filters.ordenacao);
-          filters.tabelas.forEach(tabela => {
-            params.append('tabelas', tabela);
-          });
-          endpoint = `${API_URL}/banco/busca-geral/?${params}`;
-          console.log('Busca geral:', endpoint);
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          setResults([]);
+          setError('Nenhum metadado encontrado');
+          return;
         }
-
-        console.log('Fazendo requisição para:', endpoint);
-        const response = await fetch(endpoint);
-        console.log('Status da resposta:', response.status);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Erro na resposta:', errorText);
-          
-          if (response.status === 404) {
-            setResults([]);
-            setError(tipoBusca === 'metadados' 
-              ? 'Nenhum processo encontrado com esses metadados'
-              : 'Nenhum resultado encontrado'
-            );
-          } else {
-            throw new Error(`Erro ${response.status}: ${errorText}`);
-          }
-        } else {
-          const data: SearchResponse = await response.json();
-          console.log('Dados recebidos:', data);
-          setResults(data.resultados || []);
-          
-          // Salva no histórico
-          addToHistory(searchQuery.trim());
-        }
-      } catch (err) {
-        console.error('Erro na busca:', err);
-        setError(err instanceof Error ? err.message : 'Erro na busca');
-        setResults([]);
-      } finally {
-        setLoading(false);
+        throw new Error(`Erro ${response.status}: ${response.statusText}`);
       }
-    }, 400);
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [searchQuery, filters, tipoBusca]);
+      const data: SearchResult = await response.json();
+      console.log('✅ Resultados encontrados:', data);
+      
+      let sortedResults = data.metadados || [];
+      
+      // Aplicar ordenação
+      if (ordenacao === 'alfabetico') {
+        sortedResults = [...sortedResults].sort((a, b) => a.nome.localeCompare(b.nome));
+      } else if (ordenacao === 'recente') {
+        sortedResults = [...sortedResults].sort((a, b) => b.id - a.id);
+      }
+      
+      setResults(sortedResults);
+      
+      // Salvar no histórico
+      addToHistory(searchTerm);
+    } catch (err) {
+      console.error('❌ Erro ao buscar:', err);
+      setError(err instanceof Error ? err.message : 'Erro ao buscar metadados');
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const addToHistory = (query: string) => {
-    const newHistory = [query, ...searchHistory.filter(h => h !== query)].slice(0, 10);
+  const addToHistory = (searchTerm: string) => {
+    const newHistory = [searchTerm, ...searchHistory.filter(h => h !== searchTerm)].slice(0, 10);
     setSearchHistory(newHistory);
     localStorage.setItem('searchHistory', JSON.stringify(newHistory));
   };
 
-  const toggleTabela = (tabela: string) => {
-    setFilters(prev => ({
-      ...prev,
-      tabelas: prev.tabelas.includes(tabela)
-        ? prev.tabelas.filter(t => t !== tabela)
-        : [...prev.tabelas, tabela]
-    }));
+  // Debounce para evitar muitas requisições
+  const debouncedSearch = useCallback(
+    debounce((term: string) => searchMetadados(term), 500),
+    [ordenacao]
+  );
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setQuery(value);
+    debouncedSearch(value);
   };
 
-  const clearSearch = () => {
-    setSearchQuery("");
+  const handleClear = () => {
+    setQuery("");
     setResults([]);
     setError(null);
-    setSuggestions([]);
-    setShowSuggestions(false);
   };
 
-  const selectSuggestion = (suggestion: string) => {
-    setSearchQuery(suggestion);
-    setShowSuggestions(false);
-    searchInputRef.current?.focus();
+  const handleHistoryClick = (historyQuery: string) => {
+    setQuery(historyQuery);
+    searchMetadados(historyQuery);
   };
 
-  const highlightText = (text: string, terms: string[]) => {
-    if (!terms || terms.length === 0) return text;
-    
-    let highlightedText = text;
-    terms.forEach(term => {
-      const regex = new RegExp(`(${term})`, 'gi');
-      highlightedText = highlightedText.replace(regex, '<mark class="bg-yellow-200 px-1 rounded">$1</mark>');
-    });
-    
-    return highlightedText;
+  const highlightText = (text: string, searchTerm: string) => {
+    if (!searchTerm) return text;
+    const regex = new RegExp(`(${searchTerm})`, 'gi');
+    return text.replace(regex, '<mark class="bg-yellow-200 px-1 rounded">$1</mark>');
   };
 
-  const getCategoryColor = (categoria: string) => {
-    const tabela = TABELAS_DISPONIVEIS.find(t => 
-      t.label.toLowerCase().includes(categoria.toLowerCase())
-    );
-    return tabela?.color || 'bg-gray-100 text-gray-800';
-  };
-
-  const getCategoryIcon = (categoria: string) => {
-    const tabela = TABELAS_DISPONIVEIS.find(t => 
-      t.label.toLowerCase().includes(categoria.toLowerCase())
-    );
-    return tabela?.icon || Package;
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
-  };
-
-  const handleResultClick = (result: SearchResult) => {
-    // Navega para o item específico baseado no tipo
-    if (result.tabela === 'processos') {
-      window.location.href = `/processos/${result.id}`;
-    } else if (result.tabela === 'metadados') {
-      window.location.href = `/metadados/${result.id}`;
-    } else {
-      // Para outras tabelas, navega para a URL da API
-      window.open(`${API_URL}${result.link_api}`, '_blank');
+  // Re-ordenar quando mudar a ordenação
+  useEffect(() => {
+    if (query.length >= 2) {
+      searchMetadados(query);
     }
-  };
+  }, [ordenacao]);
 
   return (
-    <div className="space-y-3 relative">
+    <div className="space-y-4">
       {/* Seletor de tipo de busca */}
       <div className="flex items-center gap-2">
         <div className="flex bg-muted rounded-lg p-1">
@@ -295,15 +161,33 @@ export const SearchBar = () => {
             <button
               key={tipo.value}
               onClick={() => setTipoBusca(tipo.value as any)}
-              className={`px-3 py-1 text-sm rounded-md transition-colors ${
+              className={`px-4 py-2 text-sm rounded-md transition-all ${
                 tipoBusca === tipo.value
-                  ? 'bg-background text-foreground shadow-sm'
+                  ? 'bg-background text-foreground shadow-sm font-medium'
                   : 'text-muted-foreground hover:text-foreground'
               }`}
+              title={tipo.description}
             >
               {tipo.label}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Descrição do tipo de busca */}
+      <div className="text-xs text-muted-foreground px-1">
+        <div className="flex items-center gap-2">
+          {tipoBusca === 'metadados' ? (
+            <>
+              <Settings className="h-3 w-3" />
+              <span>Busca em metadados, dados LGPD e atividades</span>
+            </>
+          ) : (
+            <>
+              <FileText className="h-3 w-3" />
+              <span>Busca processos que contêm dados específicos</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -313,292 +197,219 @@ export const SearchBar = () => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
             ref={searchInputRef}
+            type="text"
             placeholder={
-              tipoBusca === 'metadados' 
-                ? "Digite um dado para encontrar processos relacionados..."
-                : "Buscar metadados, processos, usuários..."
+              tipoBusca === 'metadados'
+                ? "Buscar por metadados, LGPD, dados..."
+                : "Buscar processos por dados (ex: CPF, email)..."
             }
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => {
-              if (suggestions.length > 0) setShowSuggestions(true);
-            }}
+            value={query}
+            onChange={handleInputChange}
             className="pl-10 pr-10"
           />
-          {searchQuery && (
+          {query && (
             <button
-              onClick={clearSearch}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              onClick={handleClear}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
             >
               <X className="h-4 w-4" />
             </button>
           )}
         </div>
 
-        {/* Menu de filtros - só aparece na busca geral */}
-        {tipoBusca === 'geral' && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="flex items-center gap-2">
-                <Filter className="h-4 w-4" />
-                Filtros
-                {(filters.tabelas.length > 0 || filters.ordenacao !== 'relevancia') && (
-                  <Badge variant="secondary" className="ml-1">
-                    {filters.tabelas.length || '•'}
-                  </Badge>
-                )}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-64">
-              <DropdownMenuLabel>Buscar em</DropdownMenuLabel>
-              {TABELAS_DISPONIVEIS.map((tabela) => (
-                <DropdownMenuCheckboxItem
-                  key={tabela.id}
-                  checked={filters.tabelas.includes(tabela.id)}
-                  onCheckedChange={() => toggleTabela(tabela.id)}
-                >
-                  <tabela.icon className="h-4 w-4 mr-2" />
-                  {tabela.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-              
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel>Ordenação</DropdownMenuLabel>
-              {ORDENACAO_OPTIONS.map((opcao) => (
-                <DropdownMenuItem
-                  key={opcao.value}
-                  onClick={() => setFilters(prev => ({ ...prev, ordenacao: opcao.value as any }))}
-                  className={filters.ordenacao === opcao.value ? 'bg-accent' : ''}
-                >
-                  <opcao.icon className="h-4 w-4 mr-2" />
-                  {opcao.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
+        {/* Menu de ordenação */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              Ordenar
+              {ordenacao !== 'relevancia' && (
+                <Badge variant="secondary" className="ml-1">•</Badge>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuLabel>Ordenar por</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {ORDENACAO_OPTIONS.map((opcao) => (
+              <DropdownMenuItem
+                key={opcao.value}
+                onClick={() => setOrdenacao(opcao.value as any)}
+                className={ordenacao === opcao.value ? 'bg-accent' : ''}
+              >
+                <opcao.icon className="h-4 w-4 mr-2" />
+                {opcao.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-
-      {/* Descrição do tipo de busca */}
-      <div className="text-xs text-muted-foreground">
-        {tipoBusca === 'metadados' ? (
-          <div className="flex items-center gap-1">
-            <Settings className="h-3 w-3" />
-            <span>Busca processos que contêm metadados com os dados especificados</span>
-          </div>
-        ) : (
-          <span>Busca geral em todas as tabelas do sistema</span>
-        )}
-      </div>
-
-      {showSuggestions && suggestions.length > 0 && (
-        <Card className="absolute top-full left-0 right-0 z-50 mt-1 p-2 space-y-1 max-h-64 overflow-y-auto shadow-lg">
-          <div className="text-xs font-medium text-muted-foreground mb-2">Sugestões</div>
-          {suggestions.map((suggestion, index) => (
-            <div
-              key={index}
-              onClick={() => selectSuggestion(suggestion.texto)}
-              className="p-2 hover:bg-accent rounded cursor-pointer text-sm transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <span>{suggestion.texto}</span>
-                <Badge variant="outline" className="text-xs">
-                  {suggestion.categoria}
-                </Badge>
-              </div>
-            </div>
-          ))}
-        </Card>
-      )}
 
       {/* Histórico de busca */}
-      {!searchQuery && searchHistory.length > 0 && (
-        <Card className="p-3">
-          <div className="flex items-center gap-2 mb-2">
+      {!query && searchHistory.length > 0 && (
+        <Card className="p-4">
+          <div className="flex items-center gap-2 mb-3">
             <Clock className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm font-medium text-muted-foreground">Buscas recentes</span>
           </div>
-          <div className="flex flex-wrap gap-1">
-            {searchHistory.slice(0, 5).map((query, index) => (
+          <div className="flex flex-wrap gap-2">
+            {searchHistory.slice(0, 5).map((historyQuery, index) => (
               <Badge 
                 key={index}
                 variant="secondary" 
                 className="cursor-pointer hover:bg-accent transition-colors"
-                onClick={() => setSearchQuery(query)}
+                onClick={() => handleHistoryClick(historyQuery)}
               >
-                {query}
+                {historyQuery}
               </Badge>
             ))}
           </div>
         </Card>
       )}
 
-      {/* Resultados */}
-      {(loading || error || results.length > 0) && (
-        <Card className="p-4 space-y-3">
-          {loading && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Buscando...
-            </div>
-          )}
-          
-          {error && (
-            <div className="text-sm text-destructive bg-destructive/10 p-3 rounded">
-              {error}
-            </div>
-          )}
-          
-          {!loading && results.length > 0 && (
-            <>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  {results.length} resultado(s) encontrado(s)
-                  {tipoBusca === 'metadados' && " (processos por metadados)"}
-                </span>
-                <div className="flex gap-1">
-                  {filters.tabelas.map(tabela => {
-                    const config = TABELAS_DISPONIVEIS.find(t => t.id === tabela);
-                    return config ? (
-                      <Badge key={tabela} variant="outline" className="text-xs">
-                        <config.icon className="h-3 w-3 mr-1" />
-                        {config.label}
-                      </Badge>
-                    ) : null;
-                  })}
-                </div>
-              </div>
-              
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {results.map((result) => {
-                  const CategoryIcon = getCategoryIcon(result.categoria);
-                  
-                  return (
-                    <div 
-                      key={`${result.tabela}-${result.id}`}
-                      onClick={() => handleResultClick(result)}
-                      className="p-4 hover:bg-accent rounded-lg border cursor-pointer transition-colors group"
-                    >
-                      <div className="flex items-start gap-3">
-                        {/* Ícone da categoria */}
-                        <div className={`p-2 rounded-lg ${getCategoryColor(result.categoria)} flex-shrink-0`}>
-                          <CategoryIcon className="h-4 w-4" />
-                        </div>
-                        
-                        {/* Conteúdo principal */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1 min-w-0">
-                              <h3 
-                                className="font-medium text-sm leading-tight mb-1"
-                                dangerouslySetInnerHTML={{
-                                  __html: highlightText(result.titulo, result.termos_busca || [])
-                                }}
-                              />
-                              <p className="text-xs text-muted-foreground">
-                                {result.subtitulo}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2 ml-2">
-                              {result.relevancia > 1.5 && (
-                                <Badge variant="secondary" className="text-xs">
-                                  <TrendingUp className="h-3 w-3 mr-1" />
-                                  {result.relevancia.toFixed(1)}
-                                </Badge>
-                              )}
-                              <Badge className={`text-xs ${getCategoryColor(result.categoria)}`}>
-                                {result.categoria}
-                              </Badge>
-                            </div>
-                          </div>
-                          {tipoBusca === 'metadados' && result.dados_extras?.metadado_relacionado && (
-                            <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-xs">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Settings className="h-3 w-3 text-green-600" />
-                                <span className="font-medium text-green-800">Metadado encontrado:</span>
-                              </div>
-                              <div className="space-y-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-green-700">LGPD:</span>
-                                  <Badge variant="outline" className="text-xs">
-                                    {result.dados_extras.metadado_relacionado.lgpd}
-                                  </Badge>
-                                </div>
-                                {result.dados_extras.metadado_relacionado.dados && 
-                                 Array.isArray(result.dados_extras.metadado_relacionado.dados) && 
-                                 result.dados_extras.metadado_relacionado.dados.length > 0 && (
-                                  <div className="text-green-600">
-                                    <span className="font-medium">Dados: </span>
-                                    <div className="flex flex-wrap gap-1 mt-1">
-                                      {result.dados_extras.metadado_relacionado.dados.slice(0, 5).map((dado: string, idx: number) => (
-                                        <Badge key={idx} variant="secondary" className="text-xs">
-                                          {dado}
-                                        </Badge>
-                                      ))}
-                                      {result.dados_extras.metadado_relacionado.dados.length > 5 && (
-                                        <Badge variant="secondary" className="text-xs">
-                                          +{result.dados_extras.metadado_relacionado.dados.length - 5} mais
-                                        </Badge>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-                                {result.dados_extras.metadado_relacionado.id_atividade && (
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-green-700">Atividade:</span>
-                                    <Badge variant="outline" className="text-xs">
-                                      {result.dados_extras.metadado_relacionado.id_atividade}
-                                    </Badge>
-                                  </div>
-                                )}
-                                {result.dados_extras.correspondencia && result.dados_extras.correspondencia.length > 0 && (
-                                  <div className="text-green-600">
-                              
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          )}
+      {/* Loading State */}
+      {loading && (
+        <Card className="p-6">
+          <div className="flex items-center justify-center gap-3">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <span className="text-muted-foreground">Buscando...</span>
+          </div>
+        </Card>
+      )}
 
-                          
-                          {/* Tags */}
-                          {result.tags && result.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mb-2">
-                              {result.tags.slice(0, 4).map((tag, idx) => (
-                                <Badge key={idx} variant="outline" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
-                              {result.tags.length > 4 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{result.tags.length - 4}
-                                </Badge>
-                              )}
-                            </div>
-                          )}
+      {/* Error State */}
+      {error && !loading && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <p className="text-red-600 font-medium">{error}</p>
+              <p className="text-sm text-red-500 mt-2">Tente buscar com outros termos</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            {result.data_modificacao && (
-                              <div className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {formatDate(result.data_modificacao)}
-                              </div>
-                            )}
-                            {result.colunas_encontradas && result.colunas_encontradas.length > 0 && (
-                              <div className="flex items-center gap-1">
-                                <Search className="h-3 w-3" />
-                                <span>Encontrado em: {result.colunas_encontradas.join(', ')}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+      {/* Results */}
+      {!loading && !error && results.length > 0 && (
+        <Card className="p-6 space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b">
+            <span className="text-sm font-medium text-muted-foreground">
+              {results.length} resultado(s) encontrado(s)
+            </span>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              {ORDENACAO_OPTIONS.find(o => o.value === ordenacao)?.icon && (
+                <>
+                  {(() => {
+                    const Icon = ORDENACAO_OPTIONS.find(o => o.value === ordenacao)!.icon;
+                    return <Icon className="h-3 w-3" />;
+                  })()}
+                  <span>{ORDENACAO_OPTIONS.find(o => o.value === ordenacao)?.label}</span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
+            {results.map((metadado) => (
+              <Card key={metadado.id} className="hover:shadow-md transition-all cursor-pointer group">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className="p-2 bg-green-100 rounded-lg flex-shrink-0">
+                        <Settings className="h-5 w-5 text-green-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <CardTitle 
+                          className="text-base leading-tight"
+                          dangerouslySetInnerHTML={{
+                            __html: highlightText(metadado.nome, query)
+                          }}
+                        />
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
+                    <Badge variant="outline" className="ml-2 flex-shrink-0">
+                      ID: {metadado.id}
+                    </Badge>
+                  </div>
+                  <CardDescription className="flex items-center gap-2 mt-2">
+                    <Tag className="h-3 w-3" />
+                    Processo: {metadado.id_processo} | Atividade: {metadado.id_atividade}
+                  </CardDescription>
+                </CardHeader>
+                
+                <CardContent className="space-y-3">
+                  {/* LGPD */}
+                  <div>
+                    <p className="text-sm font-semibold mb-2 text-muted-foreground">LGPD:</p>
+                    <Badge variant="secondary" className="font-medium">
+                      {metadado.lgpd}
+                    </Badge>
+                  </div>
+
+                  {/* Dados */}
+                  {metadado.dados && metadado.dados.length > 0 && (
+                    <div>
+                      <p className="text-sm font-semibold mb-2 text-muted-foreground">
+                        Dados ({metadado.dados.length}):
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {metadado.dados.slice(0, 8).map((dado, index) => (
+                          <Badge 
+                            key={index} 
+                            variant="outline"
+                            dangerouslySetInnerHTML={{
+                              __html: highlightText(dado, query)
+                            }}
+                          />
+                        ))}
+                        {metadado.dados.length > 8 && (
+                          <Badge variant="outline" className="bg-muted">
+                            +{metadado.dados.length - 8} mais
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Footer com data ou info adicional */}
+                  <div className="pt-2 border-t text-xs text-muted-foreground flex items-center gap-2">
+                    <FileText className="h-3 w-3" />
+                    <span>Metadado #{metadado.id}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Empty State */}
+      {!loading && !error && query && results.length === 0 && query.length >= 2 && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+            <Search className="h-16 w-16 text-muted-foreground mb-4 opacity-50" />
+            <p className="text-lg font-semibold mb-2">Nenhum resultado encontrado</p>
+            <p className="text-sm text-muted-foreground max-w-md">
+              Tente buscar com outros termos ou verifique a ortografia. 
+              Digite pelo menos 2 caracteres para iniciar a busca.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Initial State */}
+      {!query && !loading && results.length === 0 && searchHistory.length === 0 && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+            <div className="p-4 bg-primary/10 rounded-full mb-4">
+              <Search className="h-12 w-12 text-primary" />
+            </div>
+            <p className="text-lg font-semibold mb-2">Buscar Metadados</p>
+            <p className="text-sm text-muted-foreground max-w-md">
+              Digite algo para começar a busca por metadados, LGPD ou dados.
+              Use pelo menos 2 caracteres.
+            </p>
+          </CardContent>
         </Card>
       )}
     </div>
