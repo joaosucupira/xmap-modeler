@@ -40,3 +40,16 @@ from typing import Union  # For older Python, but in 3.12, can use |
 class MacroCreate(BaseModel):
     titulo: str
     data_publicacao: Union[str, None] = None  # Or str | None = None in Python 3.10+
+
+
+class ProcessoCreate(BaseModel):
+    titulo: str
+    id_pai: Optional[int] = None
+    id_area: Optional[int] = None
+    ordem: Optional[int] = None
+    data_publicacao: Optional[str] = None
+
+class MapCreate(BaseModel):
+    id_proc: int
+    titulo: str
+    XML: Optional[str] = ""

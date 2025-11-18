@@ -96,6 +96,20 @@ const createAssociation = async ({ macro_processo_id, processo_id, ordem }: { ma
   return response.json();
 };
 
+const createMap = async ({ id_proc, titulo, XML }: { id_proc: number; titulo: string; XML: string }) => {
+  const response = await fetch('http://localhost:8000/mapas/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ id_proc, titulo, XML }),
+  });
+  if (!response.ok) {
+    throw new Error('Failed to create map');
+  }
+  return response.json();
+};
+
 const MapCard: React.FC<{ map: ProcessMap; onView: () => void; onEdit: () => void; formatLastModified: (dateStr: string) => string }> = ({ map, onView, onEdit, formatLastModified }) => (
   <Card className="hover:shadow-md transition-shadow cursor-pointer">
     <CardHeader className="pb-3">
@@ -132,7 +146,7 @@ const MapCard: React.FC<{ map: ProcessMap; onView: () => void; onEdit: () => voi
   </Card>
 );
 
-const ProcessSection: React.FC<{ node: ProcessNode; level: number; formatLastModified: (dateStr: string) => string; onAddProcess: (parentId: number) => void }> = ({ node, level, formatLastModified, onAddProcess }) => {
+const ProcessSection: React.FC<{ node: ProcessNode; level: number; formatLastModified: (dateStr: string) => string; onAddProcess: (parentId: number, parentType: 'macro' | 'process') => void; onAddMap: (procId: number) => void }> = ({ node, level, formatLastModified, onAddProcess, onAddMap }) => {
   const maps: ProcessMap[] = [];
   const subProcesses: ProcessNode[] = [];
 
@@ -163,10 +177,16 @@ const ProcessSection: React.FC<{ node: ProcessNode; level: number; formatLastMod
     <div className={`space-y-4 ${level > 1 ? 'pl-6' : ''}`}>
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium">{node.titulo}</h3>
-        <Button variant="outline" size="sm" onClick={() => onAddProcess(node.id)}>
-          <Plus className="h-4 w-4 mr-1" />
-          Add Processo
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => onAddMap(node.id)}>
+            <Plus className="h-4 w-4 mr-1" />
+            Adicionar Mapa
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => onAddProcess(node.id, 'process')}>
+            <Plus className="h-4 w-4 mr-1" />
+            Adicionar Processo
+          </Button>
+        </div>
       </div>
       {maps.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -182,7 +202,7 @@ const ProcessSection: React.FC<{ node: ProcessNode; level: number; formatLastMod
         </div>
       )}
       {subProcesses.map(sub => (
-        <ProcessSection key={sub.id} node={sub} level={level + 1} formatLastModified={formatLastModified} onAddProcess={onAddProcess} />
+        <ProcessSection key={sub.id} node={sub} level={level + 1} formatLastModified={formatLastModified} onAddProcess={onAddProcess} onAddMap={onAddMap} />
       ))}
       {maps.length === 0 && subProcesses.length === 0 && (
         <p className="text-muted-foreground text-center py-4">Nenhum mapa neste processo.</p>
@@ -199,7 +219,11 @@ export const ProcessCanvas = () => {
   const [isProcessDialogOpen, setIsProcessDialogOpen] = useState(false);
   const [processTitulo, setProcessTitulo] = useState('');
   const [processOrdem, setProcessOrdem] = useState('');
-  const [processParent, setProcessParent] = useState<{type: 'macro' | 'process', id: number} | null>(null);
+  const [processParentId, setProcessParentId] = useState<number | null>(null);
+  const [processParentType, setProcessParentType] = useState<'macro' | 'process' | null>(null);
+  const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
+  const [mapTitulo, setMapTitulo] = useState('');
+  const [mapProcId, setMapProcId] = useState<number | null>(null);
 
   const { data: hierarchy = [], isLoading } = useQuery<ProcessNode[]>({
     queryKey: ['hierarchy'],
@@ -229,19 +253,20 @@ export const ProcessCanvas = () => {
   const processMutation = useMutation({
     mutationFn: createProcess,
     onSuccess: (data) => {
-      if (processParent?.type === 'macro') {
-        associationMutation.mutate({ macro_processo_id: processParent.id, processo_id: data.processo.id, ordem: processOrdem ? parseInt(processOrdem) : undefined });
+      if (processParentType === 'macro') {
+        associationMutation.mutate({ macro_processo_id: processParentId!, processo_id: data.processo.id, ordem: processOrdem ? parseInt(processOrdem) : undefined });
       } else {
         queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
-        setIsProcessDialogOpen(false);
-        setProcessTitulo('');
-        setProcessOrdem('');
-        setProcessParent(null);
         toast({
           title: "Sucesso",
           description: "Processo criado com sucesso!",
         });
       }
+      setIsProcessDialogOpen(false);
+      setProcessTitulo('');
+      setProcessOrdem('');
+      setProcessParentId(null);
+      setProcessParentType(null);
     },
     onError: (error) => {
       toast({
@@ -256,20 +281,37 @@ export const ProcessCanvas = () => {
     mutationFn: createAssociation,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
-      setIsProcessDialogOpen(false);
-      setProcessTitulo('');
-      setProcessOrdem('');
-      setProcessParent(null);
       toast({
         title: "Sucesso",
-        description: "Processo criado e associado com sucesso!",
+        description: "Associação criada com sucesso!",
       });
     },
     onError: (error) => {
       toast({
         variant: "destructive",
         title: "Erro",
-        description: "Falha ao associar Processo.",
+        description: "Falha ao criar associação.",
+      });
+    },
+  });
+
+  const mapMutation = useMutation({
+    mutationFn: createMap,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
+      setIsMapDialogOpen(false);
+      setMapTitulo('');
+      setMapProcId(null);
+      toast({
+        title: "Sucesso",
+        description: "Mapa criado com sucesso!",
+      });
+    },
+    onError: (error) => {
+      toast({
+        variant: "destructive",
+        title: "Erro",
+        description: "Falha ao criar Mapa.",
       });
     },
   });
@@ -284,13 +326,27 @@ export const ProcessCanvas = () => {
   const handleProcessSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (processTitulo.trim()) {
-      processMutation.mutate({ titulo: processTitulo, id_pai: processParent?.type === 'process' ? processParent.id : undefined, ordem: processOrdem ? parseInt(processOrdem) : undefined });
+      processMutation.mutate({ titulo: processTitulo, id_pai: processParentType === 'process' ? processParentId! : undefined, ordem: processOrdem ? parseInt(processOrdem) : undefined });
+    }
+  };
+
+  const handleMapSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (mapTitulo.trim() && mapProcId !== null) {
+      const defaultXML = '<bpmn:definitions id="Definitions_1"><bpmn:process id="Process_1"></bpmn:process></bpmn:definitions>';
+      mapMutation.mutate({ id_proc: mapProcId, titulo: mapTitulo, XML: defaultXML });
     }
   };
 
   const handleAddProcess = (parentId: number, parentType: 'macro' | 'process') => {
-    setProcessParent({ type: parentType, id: parentId });
+    setProcessParentId(parentId);
+    setProcessParentType(parentType);
     setIsProcessDialogOpen(true);
+  };
+
+  const handleAddMap = (procId: number) => {
+    setMapProcId(procId);
+    setIsMapDialogOpen(true);
   };
 
   const formatLastModified = (dateStr: string) => {
@@ -375,14 +431,14 @@ export const ProcessCanvas = () => {
                   <h2 className="text-xl font-semibold">{macro.titulo}</h2>
                   <Button variant="outline" size="sm" onClick={() => handleAddProcess(macro.id, 'macro')}>
                     <Plus className="h-4 w-4 mr-1" />
-                    Add Processo
+                    Adicionar Processo
                   </Button>
                 </div>
                 <Separator className="mb-4" />
                 {macro.children && macro.children.length > 0 ? (
                   <div className="space-y-6">
                     {macro.children.map(child => (
-                      <ProcessSection key={child.id} node={child} level={1} formatLastModified={formatLastModified} onAddProcess={(id) => handleAddProcess(id, 'process')} />
+                      <ProcessSection key={child.id} node={child} level={1} formatLastModified={formatLastModified} onAddProcess={(id, type) => handleAddProcess(id, type)} onAddMap={handleAddMap} />
                     ))}
                   </div>
                 ) : (
@@ -423,6 +479,30 @@ export const ProcessCanvas = () => {
             </div>
             <Button type="submit" disabled={processMutation.isPending || associationMutation.isPending}>
               {processMutation.isPending || associationMutation.isPending ? 'Criando...' : 'Criar'}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Map Dialog */}
+      <Dialog open={isMapDialogOpen} onOpenChange={setIsMapDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Criar Novo Mapa</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleMapSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="map-titulo">Título</Label>
+              <Input 
+                id="map-titulo" 
+                value={mapTitulo} 
+                onChange={(e) => setMapTitulo(e.target.value)} 
+                placeholder="Digite o título do Mapa" 
+                required 
+              />
+            </div>
+            <Button type="submit" disabled={mapMutation.isPending}>
+              {mapMutation.isPending ? 'Criando...' : 'Salvar'}
             </Button>
           </form>
         </DialogContent>
