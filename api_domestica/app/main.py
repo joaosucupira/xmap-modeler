@@ -13,7 +13,9 @@ from fastapi.staticfiles import StaticFiles  # Importar StaticFiles
 from .auth import AUTH_ENABLED, get_current_active_user
 
 from .auth import gerar_hash_senha, verificar_senha, criar_token_acesso
-
+from .schemas import MacroCreate
+from pydantic import BaseModel
+from typing import List
 from . import xbanco, dashboard
 from . import gemini
 from . import canvas
@@ -48,7 +50,7 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 @app.on_event("startup")
 def on_startup():
     
-   #create_all_tables()
+   create_all_tables()
    #drop_and_create_all_tables() # CUIDADO! Isto irá apagar todos os dados existentes e criar as tabelas novamente.
 
 
@@ -351,38 +353,38 @@ def create_or_update_metadados(
 
 
 
-@app.put("/metadados/{metadado_id}")
-async def update_metadados(metadado_id: int, nome: str = None, lgpd: str = None, dados: dict = None, db: Session = Depends(get_db)):
-    metadado = db.query(Metadados).filter(Metadados.id == metadado_id).first()
-    
-    if not metadado:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Metadado não encontrado.")
-    
-    updated = False
-    if nome is not None:
-        metadado.nome = nome
-        updated = True
-    if lgpd is not None:
-        metadado.lgpd = lgpd
-        updated = True
-    if dados is not None:
-        metadado.dados = dados
-        updated = True
+    @app.put("/metadados/{metadado_id}")
+    async def update_metadados(metadado_id: int, nome: str = None, lgpd: str = None, dados: dict = None, db: Session = Depends(get_db)):
+        metadado = db.query(Metadados).filter(Metadados.id == metadado_id).first()
+        
+        if not metadado:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Metadado não encontrado.")
+        
+        updated = False
+        if nome is not None:
+            metadado.nome = nome
+            updated = True
+        if lgpd is not None:
+            metadado.lgpd = lgpd
+            updated = True
+        if dados is not None:
+            metadado.dados = dados
+            updated = True
 
-    if updated:
-        db.commit()
-        db.refresh(metadado)
+        if updated:
+            db.commit()
+            db.refresh(metadado)
 
-    return {
-        "metadados": [
-            {
-                "id": meta.id,
-                "nome": meta.nome,
-                "dados": meta.dados,
-                "lgpd": meta.lgpd,
-                "id_processo": meta.id_processo,
-                "id_atividade": meta.id_atividade
-            }
-            for meta in metadados
-        ]
-    }
+        return {
+            "metadados": [
+                {
+                    "id": meta.id,
+                    "nome": meta.nome,
+                    "dados": meta.dados,
+                    "lgpd": meta.lgpd,
+                    "id_processo": meta.id_processo,
+                    "id_atividade": meta.id_atividade
+                }
+                for meta in metadados
+            ]
+        }
