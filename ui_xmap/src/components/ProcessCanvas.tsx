@@ -154,8 +154,8 @@ const ProcessSection: React.FC<{ node: ProcessNode; level: number; formatLastMod
     node.children.forEach(child => {
       if (child.type === 'map') {
         maps.push({
-          id: child.proc_id!,
-          map_id: child.id,
+          id: child.proc_id!, // Mantém o ID original para uso como key se necessário
+          map_id: child.id,   // Este é o ID real do mapa
           titulo: child.titulo,
           data_criacao: child.data_criacao || new Date().toISOString(),
         });
@@ -165,12 +165,14 @@ const ProcessSection: React.FC<{ node: ProcessNode; level: number; formatLastMod
     });
   }
 
-  const handleViewMap = (processoId: number) => {
-    window.open(`http://localhost:8080?mapa=${processoId}&mode=view`, '_blank');
+  // CORREÇÃO AQUI: Renomeado para mapId para clareza
+  const handleViewMap = (mapId: number) => {
+    window.open(`http://localhost:8080?mapa=${mapId}&mode=view`, '_blank');
   };
 
-  const handleEditMap = (processoId: number) => {
-    window.open(`http://localhost:8080?mapa=${processoId}&mode=edit`, '_blank');
+  // CORREÇÃO AQUI: Renomeado para mapId para clareza
+  const handleEditMap = (mapId: number) => {
+    window.open(`http://localhost:8080?mapa=${mapId}&mode=edit`, '_blank');
   };
 
   return (
@@ -192,10 +194,11 @@ const ProcessSection: React.FC<{ node: ProcessNode; level: number; formatLastMod
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {maps.map(map => (
             <MapCard 
-              key={map.map_id} 
+              key={map.id} 
               map={map} 
-              onView={() => handleViewMap(map.id)} 
-              onEdit={() => handleEditMap(map.id)} 
+              // CORREÇÃO AQUI: Passando map.map_id ao invés de map.id
+              onView={() => handleViewMap(map.map_id)} 
+              onEdit={() => handleEditMap(map.map_id)} 
               formatLastModified={formatLastModified} 
             />
           ))}
@@ -333,7 +336,26 @@ export const ProcessCanvas = () => {
   const handleMapSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (mapTitulo.trim() && mapProcId !== null) {
-      const defaultXML = '<bpmn:definitions id="Definitions_1"><bpmn:process id="Process_1"></bpmn:process></bpmn:definitions>';
+      const defaultXML = `<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" id="Definitions_1gghy4b" targetNamespace="http://bpmn.io/schema/bpmn" exporter="bpmn-js (https://demo.bpmn.io)" exporterVersion="18.9.0">
+  <bpmn:collaboration id="Collaboration_0te0omg">
+    <bpmn:participant id="Participant_0snu5vh" processRef="Process_0sm7z4l" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_0sm7z4l" isExecutable="false">
+    <bpmn:startEvent id="StartEvent_129t7pc" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_0te0omg">
+      <bpmndi:BPMNShape id="Participant_0snu5vh_di" bpmnElement="Participant_0snu5vh" isHorizontal="true">
+        <dc:Bounds x="160" y="40" width="600" height="250" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_129t7pc">
+        <dc:Bounds x="266" y="112" width="36" height="36" />
+      </bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
+`;
       mapMutation.mutate({ id_proc: mapProcId, titulo: mapTitulo, XML: defaultXML });
     }
   };

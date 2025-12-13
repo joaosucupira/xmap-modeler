@@ -172,7 +172,26 @@ from .schemas import MapCreate  # Add this import
 
 @app.post("/mapas/")
 async def create_mapa(mapa: MapCreate, db: Session = Depends(get_db)):
-    default_xml = '<bpmn:definitions id="Definitions_1"><bpmn:process id="Process_1"></bpmn:process></bpmn:definitions>'
+    default_xml = '''<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" id="Definitions_1gghy4b" targetNamespace="http://bpmn.io/schema/bpmn" exporter="bpmn-js (https://demo.bpmn.io)" exporterVersion="18.9.0">
+  <bpmn:collaboration id="Collaboration_0te0omg">
+    <bpmn:participant id="Participant_0snu5vh" processRef="Process_0sm7z4l" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_0sm7z4l" isExecutable="false">
+    <bpmn:startEvent id="StartEvent_129t7pc" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_0te0omg">
+      <bpmndi:BPMNShape id="Participant_0snu5vh_di" bpmnElement="Participant_0snu5vh" isHorizontal="true">
+        <dc:Bounds x="160" y="40" width="600" height="250" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_129t7pc">
+        <dc:Bounds x="266" y="112" width="36" height="36" />
+      </bpmndi:BPMNShape>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
+'''
     new_mapa = Mapa(id_proc=mapa.id_proc, titulo=mapa.titulo, XML=mapa.XML or default_xml)
     db.add(new_mapa)
     db.commit()
