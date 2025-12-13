@@ -10,9 +10,12 @@ from .utils import validate_entity
 from fastapi.responses import Response
 from .schemas import UsuarioCreate,UsuarioLogin,UsuarioOut,MetadadosBase,MetadadosCreate,MetadadosResponse
 from fastapi.staticfiles import StaticFiles  # Importar StaticFiles
+from .auth import AUTH_ENABLED, get_current_active_user
 
 from .auth import gerar_hash_senha, verificar_senha, criar_token_acesso
-
+from .schemas import MacroCreate
+from pydantic import BaseModel
+from typing import List
 from . import xbanco, dashboard
 from . import gemini
 from . import canvas
@@ -46,8 +49,8 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 # startup da aplicação
 @app.on_event("startup")
 def on_startup():
-   pass
-   #create_all_tables()
+    
+   create_all_tables()
    #drop_and_create_all_tables() # CUIDADO! Isto irá apagar todos os dados existentes e criar as tabelas novamente.
 
 
@@ -67,29 +70,56 @@ async def get_items_data(db: Session = Depends(get_db)):
     items = db.query(Item).all()
     return {"items": [{"id": item.id, "nome_item": item.nome_item} for item in items]}
 
+# ... código existente ...
+
 @app.post("/register", response_model=UsuarioOut)
 def registrar_usuario(usuario: UsuarioCreate, db: Session = Depends(get_db)):
-    usuario_existente = db.query(Usuario).filter(Usuario.email == usuario.email).first()
-    if usuario_existente:
-        raise HTTPException(status_code=400, detail="Email já registrado")
-    novo_usuario = Usuario(
-        nome=usuario.nome,
-        email=usuario.email,
-        senha_hash=gerar_hash_senha(usuario.senha)
-    )
-    db.add(novo_usuario)
-    db.commit()
-    db.refresh(novo_usuario)
-    return novo_usuario
+    try:
+        # Verificar se usuário já existe
+        usuario_existente = db.query(Usuario).filter(Usuario.email == usuario.email).first()
+        if usuario_existente:
+            raise HTTPException(status_code=400, detail="Email já registrado")
+        
+        # Validações adicionais
+        if not usuario.nome or not usuario.nome.strip():
+            raise HTTPException(status_code=400, detail="Nome é obrigatório")
+        
+        if not usuario.email or not usuario.email.strip():
+            raise HTTPException(status_code=400, detail="Email é obrigatório")
+        
+        # Criar novo usuário (a validação da senha é feita em gerar_hash_senha)
+        novo_usuario = Usuario(
+            nome=usuario.nome.strip(),
+            email=usuario.email.strip().lower(),
+            senha_hash=gerar_hash_senha(usuario.senha)
+        )
+        db.add(novo_usuario)
+        db.commit()
+        db.refresh(novo_usuario)
+        return novo_usuario
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Erro ao registrar usuário: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro interno do servidor")
 
 @app.post("/login")
 def login(usuario: UsuarioLogin, db: Session = Depends(get_db)):
-    db_usuario = db.query(Usuario).filter(Usuario.email == usuario.email).first()
-    if not db_usuario or not verificar_senha(usuario.senha, db_usuario.senha_hash):
-        raise HTTPException(status_code=401, detail="Credenciais inválidas")
-    
-    token = criar_token_acesso(data={"sub": db_usuario.email})
-    return {"access_token": token, "token_type": "bearer"}
+    try:
+        db_usuario = db.query(Usuario).filter(Usuario.email == usuario.email.strip().lower()).first()
+        if not db_usuario or not verificar_senha(usuario.senha, db_usuario.senha_hash):
+            raise HTTPException(status_code=401, detail="Credenciais inválidas")
+        
+        token = criar_token_acesso(data={"sub": db_usuario.email})
+        return {"access_token": token, "token_type": "bearer"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Erro no login: {str(e)}")
+        raise HTTPException(status_code=500, detail="Erro interno do servidor")
 
 
 @app.post("/usuarios/")
@@ -172,31 +202,12 @@ from .schemas import MapCreate  # Add this import
 
 @app.post("/mapas/")
 async def create_mapa(mapa: MapCreate, db: Session = Depends(get_db)):
-    default_xml = '''<?xml version="1.0" encoding="UTF-8"?>
-<bpmn:definitions xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" id="Definitions_1gghy4b" targetNamespace="http://bpmn.io/schema/bpmn" exporter="bpmn-js (https://demo.bpmn.io)" exporterVersion="18.9.0">
-  <bpmn:collaboration id="Collaboration_0te0omg">
-    <bpmn:participant id="Participant_0snu5vh" processRef="Process_0sm7z4l" />
-  </bpmn:collaboration>
-  <bpmn:process id="Process_0sm7z4l" isExecutable="false">
-    <bpmn:startEvent id="StartEvent_129t7pc" />
-  </bpmn:process>
-  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
-    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_0te0omg">
-      <bpmndi:BPMNShape id="Participant_0snu5vh_di" bpmnElement="Participant_0snu5vh" isHorizontal="true">
-        <dc:Bounds x="160" y="40" width="600" height="250" />
-      </bpmndi:BPMNShape>
-      <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_129t7pc">
-        <dc:Bounds x="266" y="112" width="36" height="36" />
-      </bpmndi:BPMNShape>
-    </bpmndi:BPMNPlane>
-  </bpmndi:BPMNDiagram>
-</bpmn:definitions>
-'''
+    default_xml = '<bpmn:definitions id="Definitions_1"><bpmn:process id="Process_1"></bpmn:process></bpmn:definitions>'
     new_mapa = Mapa(id_proc=mapa.id_proc, titulo=mapa.titulo, XML=mapa.XML or default_xml)
     db.add(new_mapa)
     db.commit()
-    db.refresh(new_mapa)
-    return {"message": "Mapa criado com sucesso!", "mapa": {"id": new_mapa.id, "id_proc": new_mapa.id_proc, "titulo": new_mapa.titulo, "XML": new_mapa.XML}}
+    db.refresh(mapa)
+    return {"message": "Mapa criado com sucesso!", "mapa": {"id": mapa.id, "id_proc": mapa.id_proc, "titulo": mapa.titulo, "XML": mapa.XML}}
 
 @app.get("/mapas/")
 async def get_mapas(db: Session = Depends(get_db)):
@@ -259,8 +270,38 @@ async def delete_area(area_id: int, db:Session = Depends(get_db)):
     db.commit()
     return {"message": "Area deletada com sucesso!"}
 
-# Em seu arquivo main.py
-# Em seu arquivo main.py
+
+
+class MetadadosOut(BaseModel):
+    id: int
+    nome: str
+    dados: List[str]
+    lgpd: str
+    id_processo: int
+    id_atividade: str
+
+    class Config:
+        orm_mode = True
+
+@app.get("/todos-metadados/", response_model=dict[str, List[MetadadosOut]])
+async def get_metadados(db: Session = Depends(get_db)):
+    """
+    Retorna todos os metadados sem duplicação.
+    """
+    metadados = db.query(Metadados).all()
+    return {
+        "metadados": [
+            {
+                "id": meta.id,
+                "nome": meta.nome,
+                "dados": meta.dados,
+                "lgpd": meta.lgpd,
+                "id_processo": meta.id_processo,
+                "id_atividade": meta.id_atividade
+            } 
+            for meta in metadados
+        ]
+    }
 
 @app.post("/metadados/", response_model=MetadadosResponse)
 def create_or_update_metadados(
@@ -313,181 +354,38 @@ def create_or_update_metadados(
 
 
 
-@app.put("/metadados/{metadado_id}")
-async def update_metadados(metadado_id: int, nome: str = None, lgpd: str = None, dados: dict = None, db: Session = Depends(get_db)):
-    metadado = db.query(Metadados).filter(Metadados.id == metadado_id).first()
-    
-    if not metadado:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Metadado não encontrado.")
-    
-    updated = False
-    if nome is not None:
-        metadado.nome = nome
-        updated = True
-    if lgpd is not None:
-        metadado.lgpd = lgpd
-        updated = True
-    if dados is not None:
-        metadado.dados = dados
-        updated = True
+    @app.put("/metadados/{metadado_id}")
+    async def update_metadados(metadado_id: int, nome: str = None, lgpd: str = None, dados: dict = None, db: Session = Depends(get_db)):
+        metadado = db.query(Metadados).filter(Metadados.id == metadado_id).first()
+        
+        if not metadado:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Metadado não encontrado.")
+        
+        updated = False
+        if nome is not None:
+            metadado.nome = nome
+            updated = True
+        if lgpd is not None:
+            metadado.lgpd = lgpd
+            updated = True
+        if dados is not None:
+            metadado.dados = dados
+            updated = True
 
-    if updated:
-        db.commit()
-        db.refresh(metadado)
+        if updated:
+            db.commit()
+            db.refresh(metadado)
 
-    return {
-        "message": "Metadado atualizado com sucesso!",
-        "metadado": {
-            "id": metadado.id,
-            "id_processo": metadado.id_processo,
-            "id_atividade": metadado.id_atividade,
-            "nome": metadado.nome,
-            "lgpd": metadado.lgpd,
-            "dados": metadado.dados
+        return {
+            "metadados": [
+                {
+                    "id": meta.id,
+                    "nome": meta.nome,
+                    "dados": meta.dados,
+                    "lgpd": meta.lgpd,
+                    "id_processo": meta.id_processo,
+                    "id_atividade": meta.id_atividade
+                }
+                for meta in metadados
+            ]
         }
-    }
-
-@app.get("/todos-metadados/")
-async def get_metadados( db: Session = Depends(get_db)):
-    metadados = db.query(Metadados).all()
-
-    return {"metadados": [metadados for meta in metadados]}
-
-# New endpoints for MacroProcesso
-#@app.post("/macroprocessos/")
-#async def create_macroprocesso(titulo: str, data_publicacao: str = None, db: Session = Depends(get_db)):
-#    if not titulo.strip():
-#        raise HTTPException(status_code=400, detail="O título não pode ser vazio.")
-#    macro = MacroProcesso(titulo=titulo.strip(), data_publicacao=data_publicacao)
-#    db.add(macro)
-#    db.commit()
-#    db.refresh(macro)
-#    return {"message": "MacroProcesso criado com sucesso!", "macroprocesso": {"id": macro.id, "titulo": macro.titulo, "data_publicacao": macro.data_publicacao}}
-
-@app.get("/macroprocessos/")
-async def get_macroprocessos(db: Session = Depends(get_db)):
-    macros = db.query(MacroProcesso).all()
-    return {"macroprocessos": [{"id": m.id, "titulo": m.titulo, "data_publicacao": m.data_publicacao, "data_criacao": m.data_criacao} for m in macros]}
-
-@app.get("/macroprocessos/{macro_id}")
-async def get_macroprocesso(macro_id: int, db: Session = Depends(get_db)):
-    macro = validate_entity(db, macro_id, MacroProcesso)
-    return {"macroprocesso": {"id": macro.id, "titulo": macro.titulo, "data_publicacao": macro.data_publicacao}}
-
-@app.delete("/macroprocessos/{macro_id}")
-async def delete_macroprocesso(macro_id: int, db: Session = Depends(get_db)):
-    macro = validate_entity(db, macro_id, MacroProcesso)
-    db.delete(macro)
-    db.commit()
-    return {"message": "MacroProcesso deletado com sucesso!"}
-
-@app.put("/macroprocessos/{macro_id}")
-async def update_macroprocesso(macro_id: int, titulo: str = None, data_publicacao: str = None, db: Session = Depends(get_db)):
-    macro = validate_entity(db, macro_id, MacroProcesso)
-    if titulo is not None:
-        macro.titulo = titulo
-    if data_publicacao is not None:
-        macro.data_publicacao = data_publicacao
-    db.commit()
-    db.refresh(macro)
-    return {"message": "MacroProcesso atualizado com sucesso!", "macroprocesso": {"id": macro.id, "titulo": macro.titulo, "data_publicacao": macro.data_publicacao}}
-
-# Endpoints for associations (MacroProcessoProcesso)
-@app.post("/macroprocesso_processos/")
-async def create_association(macro_processo_id: int, processo_id: int, ordem: int = None, db: Session = Depends(get_db)):
-    # Validate entities exist
-    validate_entity(db, macro_processo_id, MacroProcesso)
-    proc = validate_entity(db, processo_id, Processo)
-    if proc.id_pai is not None:
-        raise HTTPException(status_code=400, detail="Apenas processos de nível superior (sem pai) podem ser associados a macroprocessos.")
-    assoc = MacroProcessoProcesso(macro_processo_id=macro_processo_id, processo_id=processo_id, ordem=ordem)
-    db.add(assoc)
-    db.commit()
-    db.refresh(assoc)
-    return {"message": "Associação criada com sucesso!", "associacao": {"id": assoc.id, "macro_processo_id": assoc.macro_processo_id, "processo_id": assoc.processo_id, "ordem": assoc.ordem}}
-
-@app.get("/macroprocessos/{macro_id}/processos/")
-async def get_macro_processos(macro_id: int, db: Session = Depends(get_db)):
-    validate_entity(db, macro_id, MacroProcesso)
-    assocs = db.query(MacroProcessoProcesso).filter(MacroProcessoProcesso.macro_processo_id == macro_id).all()
-    if not assocs:
-        return {"processos": []}
-    processo_ids = [a.processo_id for a in assocs]
-    processos = db.query(Processo).filter(Processo.id.in_(processo_ids)).all()
-    assoc_map = {a.processo_id: a.ordem for a in assocs}
-    processos_sorted = sorted(processos, key=lambda p: assoc_map.get(p.id, 0))
-    return {"processos": [{"id": p.id, "id_pai": p.id_pai, "id_area": p.id_area, "ordem": p.ordem, "titulo": p.titulo, "data_publicacao": p.data_publicacao, "data_criacao": p.data_criacao} for p in processos_sorted]}
-
-
-@app.get("/macroprocesso_processos/")
-async def get_associations(db: Session = Depends(get_db)):
-    assocs = db.query(MacroProcessoProcesso).all()
-    return {"associacoes": [{"id": a.id, "macro_processo_id": a.macro_processo_id, "processo_id": a.processo_id, "ordem": a.ordem} for a in assocs]}
-
-# Add endpoint to get mapa for a specific processo
-@app.get("/processos/{processo_id}/mapa")
-async def get_processo_mapa(processo_id: int, db: Session = Depends(get_db)):
-    mapa = db.query(Mapa).filter(Mapa.id_proc == processo_id).first()
-    if not mapa:
-        return {"mapa": None}
-    return {"mapa": {"id": mapa.id, "id_proc": mapa.id_proc, "XML": mapa.XML, "titulo": mapa.titulo}}
-
-# New endpoint for full hierarchy
-@app.get("/hierarchy/")
-async def get_hierarchy(db: Session = Depends(get_db)):
-    macros = db.query(MacroProcesso).all()
-    result = []
-    for macro in macros:
-        macro_dict = {
-            "id": macro.id,
-            "titulo": macro.titulo,
-            "type": "macro",
-            "children": []
-        }
-        assocs = db.query(MacroProcessoProcesso).filter(
-            MacroProcessoProcesso.macro_processo_id == macro.id
-        ).order_by(MacroProcessoProcesso.ordem).all()
-        for assoc in assocs:
-            proc = db.query(Processo).filter(Processo.id == assoc.processo_id).first()
-            if proc:
-                proc_node = build_proc_dict(proc, db)
-                macro_dict["children"].append(proc_node)
-        result.append(macro_dict)
-    return {"hierarchy": result}
-
-def build_proc_dict(proc: Processo, db: Session):
-    children = db.query(Processo).filter(
-        Processo.id_pai == proc.id
-    ).order_by(Processo.ordem).all()
-    mapas = db.query(Mapa).filter(Mapa.id_proc == proc.id).all()
-    proc_dict = {
-        "id": proc.id,
-        "titulo": proc.titulo,
-        "type": "process",
-        "data_criacao": proc.data_criacao.isoformat() if proc.data_criacao else None,
-        "children": []
-    }
-    for child in children:
-        child_dict = build_proc_dict(child, db)
-        proc_dict["children"].append(child_dict)
-    for mapa in mapas:
-        map_node = {
-            "id": mapa.id,
-            "titulo": mapa.titulo,
-            "type": "map",
-            "proc_id": proc.id,
-            "data_criacao": proc.data_criacao.isoformat() if proc.data_criacao else None,
-        }
-        proc_dict["children"].append(map_node)
-    return proc_dict
-
-from .schemas import MacroCreate
-@app.post("/macroprocessos/")
-async def create_macroprocesso(macro: MacroCreate, db: Session = Depends(get_db)):
-    if not macro.titulo.strip():
-        raise HTTPException(status_code=400, detail="O título não pode ser vazio.")
-    new_macro = MacroProcesso(titulo=macro.titulo.strip(), data_publicacao=macro.data_publicacao)
-    db.add(new_macro)
-    db.commit()
-    db.refresh(new_macro)
-    return {"message": "MacroProcesso criado com sucesso!", "macroprocesso": {"id": new_macro.id, "titulo": new_macro.titulo, "data_publicacao": new_macro.data_publicacao}}
