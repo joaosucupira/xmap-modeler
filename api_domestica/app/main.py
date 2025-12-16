@@ -1,6 +1,7 @@
 # api_domestica/app/main.py
 # (Modified to add /hierarchy/ endpoint)
 
+from sqlalchemy import String
 from fastapi import FastAPI, Depends, HTTPException,status
 from sqlalchemy.orm import Session
 
@@ -301,7 +302,33 @@ async def get_metadados(db: Session = Depends(get_db)):
             for meta in metadados
         ]
     }
-
+# Add search endpoint
+@app.get("/metadados/buscar/", response_model=dict[str, List[MetadadosOut]])
+async def buscar_metadados(
+    termo: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Busca metadados por termo em dados ou LGPD.
+    """
+    metadados = db.query(Metadados).filter(
+        (Metadados.dados.cast(String).ilike(f"%{termo}%")) |
+        (Metadados.lgpd.ilike(f"%{termo}%"))
+    ).all()
+    
+    return {
+        "metadados": [
+            {
+                "id": meta.id,
+                "nome": meta.nome,
+                "dados": meta.dados,
+                "lgpd": meta.lgpd,
+                "id_processo": meta.id_processo,
+                "id_atividade": meta.id_atividade
+            }
+            for meta in metadados
+        ]
+    }
 @app.post("/metadados/", response_model=MetadadosResponse)
 def create_or_update_metadados(
     metadados: MetadadosCreate, 
@@ -388,3 +415,181 @@ def create_or_update_metadados(
                 for meta in metadados
             ]
         }
+    
+
+# ...existing code...
+
+from typing import Optional
+from fastapi import UploadFile, File
+import os
+import time
+
+# ============================================
+# PERFIL DO USUÁRIO
+# ============================================
+
+class PerfilUpdate(BaseModel):
+    nome: Optional[str] = None
+    email: Optional[str] = None
+    senha_atual: Optional[str] = None
+    nova_senha: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+@app.get("/perfil/me")
+def get_meu_perfil(
+    db: Session = Depends(get_db), 
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Retorna os dados do usuário logado"""
+    return {
+        "id": current_user.id,
+        "nome": current_user.nome,
+        "email": current_user.email,
+        "avatar_url": getattr(current_user, 'avatar_url', None),
+        "data_criacao": getattr(current_user, 'data_criacao', None)
+    }
+
+@app.put("/perfil/me")
+def atualizar_meu_perfil(
+    perfil: PerfilUpdate,
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Atualiza os dados do usuário logado"""
+    # Buscar usuário no banco para atualizar
+    usuario = db.query(Usuario).filter(Usuario.id == current_user.id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    # Atualizar nome
+    if perfil.nome and perfil.nome.strip():
+        usuario.nome = perfil.nome.strip()
+    
+    # Atualizar email (verificar se já existe)
+    if perfil.email and perfil.email.strip().lower() != usuario.email:
+        email_existe = db.query(Usuario).filter(
+            Usuario.email == perfil.email.strip().lower()
+        ).first()
+        if email_existe:
+            raise HTTPException(status_code=400, detail="Email já está em uso")
+        usuario.email = perfil.email.strip().lower()
+    
+    # Atualizar senha - usando funções existentes do auth.py
+    if perfil.nova_senha:
+        if not perfil.senha_atual:
+            raise HTTPException(
+                status_code=400, 
+                detail="Senha atual é obrigatória para alterar a senha"
+            )
+        
+        # Verificar senha atual usando função existente
+        if not verificar_senha(perfil.senha_atual, usuario.senha_hash):
+            raise HTTPException(status_code=400, detail="Senha atual incorreta")
+        
+        # Gerar hash da nova senha usando função existente
+        usuario.senha_hash = gerar_hash_senha(perfil.nova_senha)
+    
+    # Atualizar avatar
+    if perfil.avatar_url is not None:
+        usuario.avatar_url = perfil.avatar_url
+    
+    try:
+        db.commit()
+        db.refresh(usuario)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Erro ao atualizar perfil")
+    
+    return {
+        "message": "Perfil atualizado com sucesso!",
+        "usuario": {
+            "id": usuario.id,
+            "nome": usuario.nome,
+            "email": usuario.email,
+            "avatar_url": getattr(usuario, 'avatar_url', None)
+        }
+    }
+
+@app.post("/perfil/avatar")
+async def upload_avatar(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Upload de avatar do usuário"""
+    # Verificar tipo do arquivo
+    allowed_types = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Tipo de arquivo não permitido. Use: JPG, PNG, GIF ou WEBP")
+    
+    # Verificar tamanho (max 5MB)
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Arquivo muito grande. Máximo: 5MB")
+    
+    # Criar nome único para o arquivo
+    file_extension = file.filename.split(".")[-1].lower()
+    unique_filename = f"avatar_{current_user.id}_{int(time.time())}.{file_extension}"
+    file_path = f"uploads/avatars/{unique_filename}"
+    
+    # Criar diretório se não existir
+    os.makedirs("uploads/avatars", exist_ok=True)
+    
+    # Salvar arquivo
+    try:
+        with open(file_path, "wb") as buffer:
+            buffer.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="Erro ao salvar arquivo")
+    
+    # Atualizar URL no banco
+    usuario = db.query(Usuario).filter(Usuario.id == current_user.id).first()
+    
+    # Remover avatar antigo se existir
+    if hasattr(usuario, 'avatar_url') and usuario.avatar_url:
+        old_path = usuario.avatar_url.lstrip('/')
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except:
+                pass  # Ignora erro ao remover arquivo antigo
+    
+    usuario.avatar_url = f"/uploads/avatars/{unique_filename}"
+    
+    try:
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        # Remover arquivo salvo em caso de erro
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise HTTPException(status_code=500, detail="Erro ao atualizar banco de dados")
+    
+    return {
+        "message": "Avatar atualizado com sucesso!",
+        "avatar_url": usuario.avatar_url
+    }
+
+@app.delete("/perfil/avatar")
+async def remover_avatar(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_active_user)
+):
+    """Remove o avatar do usuário"""
+    usuario = db.query(Usuario).filter(Usuario.id == current_user.id).first()
+    
+    if hasattr(usuario, 'avatar_url') and usuario.avatar_url:
+        # Remover arquivo físico
+        old_path = usuario.avatar_url.lstrip('/')
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except:
+                pass
+        
+        usuario.avatar_url = None
+        db.commit()
+    
+    return {"message": "Avatar removido com sucesso!"}
+
+# ...existing code...

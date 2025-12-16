@@ -11,6 +11,7 @@ import LoginPage from './pages/LoginPage';
 import NotFound from './pages/NotFound';
 import { Toaster } from '@/components/ui/toaster';
 import './App.css';
+import ProfilePage from "./pages/ProfilePage"; // Alterado para default import
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -36,9 +37,57 @@ const AppContent: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Routes>
-        <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
-        <Route path="/" element={<ProtectedRoute><ErrorBoundary><Index /></ErrorBoundary></ProtectedRoute>} />
-        <Route path="/create-process" element={<ProtectedRoute><ErrorBoundary><div className="min-h-screen bg-gray-50"><UserHeader /><main className="container mx-auto px-4 py-6"><CreateProcess /></main></div></ErrorBoundary></ProtectedRoute>} />
+        <Route 
+          path="/login" 
+          element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} 
+        />
+        <Route 
+          path="/" 
+          element={
+            <ProtectedRoute>
+              <ErrorBoundary>
+                <Index />
+              </ErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/perfil" 
+          element={
+            <ProtectedRoute>
+              <ErrorBoundary>
+                <ProfilePage />
+              </ErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/configuracoes" 
+          element={
+            <ProtectedRoute>
+              <ErrorBoundary>
+                <div className="min-h-screen flex items-center justify-center">
+                  <p className="text-muted-foreground">Configurações - Em desenvolvimento</p>
+                </div>
+              </ErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/create-process" 
+          element={
+            <ProtectedRoute>
+              <ErrorBoundary>
+                <div className="min-h-screen bg-gray-50">
+                  <UserHeader />
+                  <main className="container mx-auto px-4 py-6">
+                    <CreateProcess />
+                  </main>
+                </div>
+              </ErrorBoundary>
+            </ProtectedRoute>
+          } 
+        />
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Toaster />

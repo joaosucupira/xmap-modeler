@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { LogOut, User, Settings } from 'lucide-react';
+import { useNavigate } from "react-router-dom";
 
 const UserHeader: React.FC = () => {
   const { user, logout, isAuthEnabled } = useAuth();
@@ -25,6 +26,7 @@ const UserHeader: React.FC = () => {
       .toUpperCase()
       .slice(0, 2);
   };
+const navigate = useNavigate();
 
   return (
     <div className="flex items-center justify-between p-4 bg-white border-b border-gray-200">
@@ -61,16 +63,18 @@ const UserHeader: React.FC = () => {
                 </p>
               </div>
             </DropdownMenuLabel>
+        // ...existing code...
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/perfil")}>
               <User className="mr-2 h-4 w-4" />
               <span>Perfil</span>
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate("/configuracoes")}>
               <Settings className="mr-2 h-4 w-4" />
               <span>Configurações</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+
             {isAuthEnabled && (
               <DropdownMenuItem onClick={logout}>
                 <LogOut className="mr-2 h-4 w-4" />
