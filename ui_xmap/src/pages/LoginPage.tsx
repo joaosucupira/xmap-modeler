@@ -34,6 +34,7 @@ const LoginPage: React.FC = () => {
       setLoginLoading(false);
     }
   };
+// ...existing code...
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,11 +58,14 @@ const LoginPage: React.FC = () => {
     try {
       const result = await register(registerData.nome, registerData.email, registerData.password);
       if (result.success) {
-        setRegisterSuccess(true);
-        setRegisterData({ nome: '', email: '', password: '', confirmPassword: '' });
-        setTimeout(() => {
-          setRegisterSuccess(false);
-        }, 5000);
+        // Após cadastro bem-sucedido, faz login automaticamente
+        const loginResult = await login(registerData.email, registerData.password);
+        if (!loginResult.success) {
+          // Se o login automático falhar, mostra mensagem de sucesso do cadastro
+          setRegisterSuccess(true);
+          setRegisterData({ nome: '', email: '', password: '', confirmPassword: '' });
+        }
+        // Se login bem-sucedido, o useAuth vai redirecionar automaticamente
       } else {
         setRegisterError(result.error || 'Erro no cadastro');
       }
@@ -71,6 +75,8 @@ const LoginPage: React.FC = () => {
       setRegisterLoading(false);
     }
   };
+
+// ...existing code...
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">

@@ -1,5 +1,6 @@
 # schemas.py
 from pydantic import BaseModel
+from typing import Optional, List, Union
 
 class UsuarioCreate(BaseModel):
     nome: str
@@ -15,15 +16,18 @@ class UsuarioOut(BaseModel):
     nome: str
     email: str
 
-
-from typing import List, Optional
+class MapCreate(BaseModel):
+    id_proc: int
+    titulo: str
+    XML: Optional[str] = None
+    status: Optional[str] = None
 
 class MetadadosBase(BaseModel):
     id_processo: int
     id_atividade: str
-    nome: str = "generatedData" # Valor padrão para este caso de uso
+    nome: str = "generatedData"
     lgpd: str
-    dados: List[str] # Espera uma lista de strings, exatamente como o generatedData
+    dados: List[str]
 
 class MetadadosCreate(MetadadosBase):
     pass
@@ -32,15 +36,11 @@ class MetadadosResponse(MetadadosBase):
     id: int
 
     class Config:
-        orm_mode = True # Permite que o Pydantic leia dados de objetos SQLAlchemy
-
-from pydantic import BaseModel
-from typing import Union  # For older Python, but in 3.12, can use |
+        from_attributes = True  # Atualizado de orm_mode para Pydantic v2
 
 class MacroCreate(BaseModel):
     titulo: str
-    data_publicacao: Union[str, None] = None  # Or str | None = None in Python 3.10+
-
+    data_publicacao: Union[str, None] = None
 
 class ProcessoCreate(BaseModel):
     titulo: str
@@ -49,7 +49,4 @@ class ProcessoCreate(BaseModel):
     ordem: Optional[int] = None
     data_publicacao: Optional[str] = None
 
-class MapCreate(BaseModel):
-    id_proc: int
-    titulo: str
-    XML: Optional[str] = ""
+# REMOVIDO: Segunda definição duplicada de MapCreate

@@ -8,21 +8,26 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-const getStatusBadgeVariant = (status: any): "default" | "secondary" | "destructive" | "outline" => {
-  // Se for booleano, trata primeiro
-  if (typeof status === 'boolean') {
-    // true = 'Concluído' (default/verde), false = 'Pendente' (destructive/vermelho)
-    return status ? 'default' : 'destructive';
-  }
-
-  // Mantém a lógica antiga caso o status seja uma string
-  const statusString = String(status ?? '').toLowerCase();
-  switch (statusString) {
+const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+  const statusLower = status.toLowerCase();
+  switch (statusLower) {
     case 'concluído': return 'default';
     case 'em andamento': return 'secondary';
     case 'pendente': return 'destructive';
     default: return 'outline';
   }
+};
+
+const formatDate = (dateString: string | null) => {
+  if (!dateString) return 'N/A';
+  const date = new Date(dateString);
+  return date.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 };
 
 export function Dashboard() {
@@ -49,7 +54,6 @@ export function Dashboard() {
     fetchData();
   }, [activeFilter]);
 
-  // 1. Lógica de renderização condicional mais segura
   if (loading) {
     return <DashboardSkeleton />;
   }
@@ -58,70 +62,13 @@ export function Dashboard() {
     return <div className="p-4 text-center text-red-500 bg-red-100 border border-red-400 rounded-md"><strong>Erro:</strong> {error}</div>;
   }
 
-  // 2. Garante que 'data' não é nulo antes de prosseguir
   if (!data) {
     return <div className="text-center p-8">Não foi possível carregar os dados do dashboard.</div>;
   }
-// ...existing imports...
 
-function DashboardSkeleton() {
-  return (
-    <ScrollArea className="h-[calc(100vh-2rem)] w-full">
-      <div className="space-y-6 p-6">
-        {/* Skeleton para os Cards de Resumo */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <Skeleton className="h-4 w-[100px]" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-8 w-[60px]" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Skeleton para o Gráfico */}
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-[200px]" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-72 w-full" />
-          </CardContent>
-        </Card>
-
-        {/* Skeleton para a Tabela */}
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-6 w-[150px] mb-4" />
-            <div className="flex gap-2">
-              <Skeleton className="h-10 w-20" />
-              <Skeleton className="h-10 w-20" />
-              <Skeleton className="h-10 w-20" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </ScrollArea>
-  );
-}
-
-// ...rest of your Dashboard component code...
   const statusList = ['todos', ...Object.keys(data.stats.statusCounts ?? {})];
-const chartData = Object.entries(data.stats.statusCounts).map(([status, count]) => ({
-  status,
-  count
-}));
- return (
+
+  return (
     <ScrollArea className="h-[calc(100vh-2rem)] w-full">
       <div className="space-y-6 p-6">
         {/* Cards de Resumo Global */}
@@ -129,7 +76,8 @@ const chartData = Object.entries(data.stats.statusCounts).map(([status, count]) 
           {Object.entries(data.stats.statusCounts).map(([status, count]) => (
             <Card key={status}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium capitalize">{status || 'Sem Status'}</CardTitle>
+                <CardTitle className="text-sm font-medium">{status || 'Sem Status'}</CardTitle>
+               
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{count}</div>
@@ -170,7 +118,7 @@ const chartData = Object.entries(data.stats.statusCounts).map(([status, count]) 
             <Tabs value={activeFilter} onValueChange={setActiveFilter} className="mt-4">
               <TabsList>
                 {statusList.map(status => (
-                  <TabsTrigger key={status} value={status} className="capitalize">
+                  <TabsTrigger key={status} value={status}>
                     {status}
                   </TabsTrigger>
                 ))}
@@ -192,12 +140,12 @@ const chartData = Object.entries(data.stats.statusCounts).map(([status, count]) 
                     <TableRow key={processo.id}>
                       <TableCell className="font-medium">{processo.titulo}</TableCell>
                       <TableCell>
-                        <Badge variant={getStatusBadgeVariant(processo.status)} className="capitalize">
+                        <Badge variant={getStatusBadgeVariant(processo.status)}>
                           {processo.status || 'N/A'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        {new Date(processo.dataModificacao).toLocaleDateString('pt-BR')}
+                        {formatDate(processo.dataModificacao)}
                       </TableCell>
                     </TableRow>
                   ))
@@ -210,6 +158,52 @@ const chartData = Object.entries(data.stats.statusCounts).map(([status, count]) 
                 )}
               </TableBody>
             </Table>
+          </CardContent>
+        </Card>
+      </div>
+    </ScrollArea>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <ScrollArea className="h-[calc(100vh-2rem)] w-full">
+      <div className="space-y-6 p-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <Skeleton className="h-4 w-[100px]" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-8 w-[60px]" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-[200px]" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-72 w-full" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-6 w-[150px] mb-4" />
+            <div className="flex gap-2">
+              <Skeleton className="h-10 w-20" />
+              <Skeleton className="h-10 w-20" />
+              <Skeleton className="h-10 w-20" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} className="h-12 w-full" />
+              ))}
+            </div>
           </CardContent>
         </Card>
       </div>

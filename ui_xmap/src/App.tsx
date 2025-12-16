@@ -7,6 +7,7 @@ import ProtectedRoute from './components/ProtectedRouteProps';
 import UserHeader from './components/NavMenu';
 import Index from './pages/Index';
 import CreateProcess from './pages/CreateProcess';
+import ProcessTreeView from './pages/ProcessTreeView';
 import LoginPage from './pages/LoginPage';
 import NotFound from './pages/NotFound';
 import { Toaster } from '@/components/ui/toaster';
@@ -39,6 +40,7 @@ const AppContent: React.FC = () => {
         <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
         <Route path="/" element={<ProtectedRoute><ErrorBoundary><Index /></ErrorBoundary></ProtectedRoute>} />
         <Route path="/create-process" element={<ProtectedRoute><ErrorBoundary><div className="min-h-screen bg-gray-50"><UserHeader /><main className="container mx-auto px-4 py-6"><CreateProcess /></main></div></ErrorBoundary></ProtectedRoute>} />
+        <Route path="/novo-processo" element={<ProtectedRoute><ErrorBoundary><ProcessTreeView /></ErrorBoundary></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Toaster />

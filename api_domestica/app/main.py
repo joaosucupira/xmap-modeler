@@ -1,6 +1,7 @@
 # api_domestica/app/main.py
 # (Modified to add /hierarchy/ endpoint)
 
+from datetime import datetime
 from sqlalchemy import String
 from fastapi import FastAPI, Depends, HTTPException,status
 from sqlalchemy.orm import Session
@@ -244,17 +245,16 @@ from .schemas import MapCreate  # Add this import
 
 @app.post("/mapas/")
 async def create_mapa(mapa: MapCreate, db: Session = Depends(get_db)):
-    default_xml = '<bpmn:definitions id="Definitions_1"><bpmn:process id="Process_1"></bpmn:process></bpmn:definitions>'
-    
     new_mapa = Mapa(
         id_proc=mapa.id_proc,
         titulo=mapa.titulo,
-        XML=mapa.XML or default_xml
+        XML=mapa.XML or '<bpmn:definitions id="Definitions_1"><bpmn:process id="Process_1"></bpmn:process></bpmn:definitions>',
+        status=mapa.status or "Em andamento"
     )
 
     db.add(new_mapa)
     db.commit()
-    db.refresh(new_mapa)  # ✅ correto
+    db.refresh(new_mapa)
 
     return {
         "message": "Mapa criado com sucesso!",
@@ -262,15 +262,221 @@ async def create_mapa(mapa: MapCreate, db: Session = Depends(get_db)):
             "id": new_mapa.id,
             "id_proc": new_mapa.id_proc,
             "titulo": new_mapa.titulo,
-            "XML": new_mapa.XML
+            "XML": new_mapa.XML,
+            "status": new_mapa.status,
+            "data_criacao": new_mapa.data_criacao,
+            "data_modificacao": new_mapa.data_modificacao
+        }
+    }
+
+# Adicionar endpoint PUT para atualizar mapa
+@app.put("/mapas/{mapa_id}")
+async def update_mapa(
+    mapa_id: int, 
+    titulo: str = None,
+    status: str = None,
+    XML: str = None,
+    db: Session = Depends(get_db)
+):
+    mapa = validate_entity(db, mapa_id, Mapa)
+    
+    if titulo is not None:
+        mapa.titulo = titulo
+    if status is not None:
+        mapa.status = status
+    if XML is not None:
+        mapa.XML = XML
+    
+    # Atualiza data_modificacao manualmente (caso onupdate não funcione)
+    mapa.data_modificacao = datetime.datetime.utcnow()
+    
+    db.commit()
+    db.refresh(mapa)
+    
+    return {
+        "message": "Mapa atualizado com sucesso!",
+        "mapa": {
+            "id": mapa.id,
+            "id_proc": mapa.id_proc,
+            "titulo": mapa.titulo,
+            "status": mapa.status,
+            "data_modificacao": mapa.data_modificacao
+        }
+    }
+@app.patch("/mapas/{mapa_id}/status")
+async def update_mapa_status(
+    mapa_id: int,
+    status: str,
+    db: Session = Depends(get_db)
+):
+    mapa = validate_entity(db, mapa_id, Mapa)
+    
+    valid_statuses = ["Concluído", "Em andamento", "Pendente"]
+    if status not in valid_statuses:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Status inválido. Use um dos seguintes: {', '.join(valid_statuses)}"
+        )
+    
+    mapa.status = status
+    mapa.data_modificacao = datetime.datetime.utcnow()
+    
+    db.commit()
+    db.refresh(mapa)
+    
+    return {
+        "message": "Status atualizado com sucesso!",
+        "mapa": {
+            "id": mapa.id,
+            "titulo": mapa.titulo,
+            "status": mapa.status,
+            "data_modificacao": mapa.data_modificacao
+        }
+    }
+
+# ...existing code...
+
+# ============== MOVE ENDPOINTS ==============
+
+class MoveProcessoRequest(BaseModel):
+    """Mover processo para outro macroprocesso ou como subprocesso de outro processo"""
+    target_macro_id: Optional[int] = None  # Se mover para macroprocesso
+    target_processo_id: Optional[int] = None  # Se mover como subprocesso
+    ordem: Optional[int] = None
+
+class MoveMapaRequest(BaseModel):
+    """Mover mapa para outro processo"""
+    target_processo_id: int
+    
+@app.put("/processos/{processo_id}/move")
+async def move_processo(
+    processo_id: int, 
+    data: MoveProcessoRequest,
+    db: Session = Depends(get_db)
+):
+    """Move um processo para outro macroprocesso ou como subprocesso de outro processo"""
+    processo = validate_entity(db, processo_id, Processo)
+    
+    # Validar que pelo menos um destino foi fornecido
+    if data.target_macro_id is None and data.target_processo_id is None:
+        raise HTTPException(
+            status_code=400, 
+            detail="Deve fornecer target_macro_id ou target_processo_id"
+        )
+    
+    # Não pode mover para os dois ao mesmo tempo
+    if data.target_macro_id is not None and data.target_processo_id is not None:
+        raise HTTPException(
+            status_code=400,
+            detail="Não pode mover para macroprocesso e processo ao mesmo tempo"
+        )
+    
+    # Se movendo para um macroprocesso
+    if data.target_macro_id is not None:
+        validate_entity(db, data.target_macro_id, MacroProcesso)
+        
+        # Remover associação antiga com qualquer macroprocesso
+        db.query(MacroProcessoProcesso).filter(
+            MacroProcessoProcesso.processo_id == processo_id
+        ).delete()
+        
+        # Remover id_pai se tiver (não é mais subprocesso)
+        processo.id_pai = None
+        
+        # Criar nova associação
+        new_assoc = MacroProcessoProcesso(
+            macro_processo_id=data.target_macro_id,
+            processo_id=processo_id,
+            ordem=data.ordem
+        )
+        db.add(new_assoc)
+        
+    # Se movendo como subprocesso de outro processo
+    elif data.target_processo_id is not None:
+        target_processo = validate_entity(db, data.target_processo_id, Processo)
+        
+        # Não pode mover para si mesmo
+        if target_processo.id == processo_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Não pode mover um processo para si mesmo"
+            )
+        
+        # Verificar se não está criando ciclo (o target não pode ser filho do processo)
+        def is_descendant(parent_id: int, check_id: int) -> bool:
+            children = db.query(Processo).filter(Processo.id_pai == parent_id).all()
+            for child in children:
+                if child.id == check_id:
+                    return True
+                if is_descendant(child.id, check_id):
+                    return True
+            return False
+        
+        if is_descendant(processo_id, data.target_processo_id):
+            raise HTTPException(
+                status_code=400,
+                detail="Não pode mover um processo para um de seus descendentes"
+            )
+        
+        # Remover associação com macroprocesso se existir
+        db.query(MacroProcessoProcesso).filter(
+            MacroProcessoProcesso.processo_id == processo_id
+        ).delete()
+        
+        # Definir novo pai
+        processo.id_pai = data.target_processo_id
+        processo.ordem = data.ordem
+    
+    db.commit()
+    db.refresh(processo)
+    
+    return {
+        "message": "Processo movido com sucesso!",
+        "processo": {
+            "id": processo.id,
+            "id_pai": processo.id_pai,
+            "titulo": processo.titulo
         }
     }
 
 
+@app.put("/mapas/{mapa_id}/move")
+async def move_mapa(
+    mapa_id: int,
+    data: MoveMapaRequest,
+    db: Session = Depends(get_db)
+):
+    """Move um mapa para outro processo"""
+    mapa = validate_entity(db, mapa_id, Mapa)
+    validate_entity(db, data.target_processo_id, Processo)
+    
+    mapa.id_proc = data.target_processo_id
+    
+    db.commit()
+    db.refresh(mapa)
+    
+    return {
+        "message": "Mapa movido com sucesso!",
+        "mapa": {
+            "id": mapa.id,
+            "id_proc": mapa.id_proc,
+            "titulo": mapa.titulo
+        }
+    }
+
+# ...existing code...
 @app.get("/mapas/")
 async def get_mapas(db: Session = Depends(get_db)):
     mapas = db.query(Mapa).all()
-    return {"mapas": [{"id": mapa.id, "id_proc": mapa.id_proc, "XML": mapa.XML, "titulo": mapa.titulo} for mapa in mapas]}
+    return {"mapas": [{
+        "id": mapa.id, 
+        "id_proc": mapa.id_proc, 
+        "XML": mapa.XML, 
+        "titulo": mapa.titulo,
+        "status": mapa.status,
+        "data_criacao": mapa.data_criacao.isoformat() if mapa.data_criacao else None,
+        "data_modificacao": mapa.data_modificacao.isoformat() if mapa.data_modificacao else None
+    } for mapa in mapas]}
 
 @app.get("/mapas/{mapa_id}")
 async def get_mapa(mapa_id: int, db:Session = Depends(get_db)):

@@ -66,8 +66,11 @@ class Mapa(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     id_proc = Column(Integer)
     titulo = Column(String(200), nullable=False)
-    status = Column(Boolean, default=True)
+    status = Column(String(50), default="Em andamento")  # Mudado para String com valores: "Concluído", "Em andamento", "Pendente"
     XML = Column(String)
+    data_criacao = Column(DateTime, default=datetime.datetime.utcnow)
+    data_modificacao = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
     
 class Area(Base):
     __tablename__ = 'areas'

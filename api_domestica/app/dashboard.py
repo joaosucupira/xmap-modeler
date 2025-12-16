@@ -4,7 +4,6 @@ from sqlalchemy import func
 from typing import Optional
 
 from .database import get_db, Processo, Mapa
-# A importação de 'get_current_user' não é mais necessária aqui
 
 router = APIRouter()
 
@@ -12,17 +11,16 @@ router = APIRouter()
 async def get_dashboard_data(
     status_filter: Optional[str] = Query(None, alias="status"),
     db: Session = Depends(get_db),
-    # A dependência 'current_user' foi removida daqui
 ):
     """
     Fornece dados agregados para o dashboard (endpoint público).
-    Pode ser filtrado por status (ex: /dashboard?status=concluído).
+    Pode ser filtrado por status (ex: /dashboard?status=Concluído).
     """
     # Query base que une Processo e Mapa
     query = db.query(Processo, Mapa).join(Mapa, Processo.id == Mapa.id_proc)
 
     # Aplica o filtro de status no campo da tabela Mapa
-    if status_filter:
+    if status_filter and status_filter != "todos":
         query = query.filter(Mapa.status == status_filter)
 
     # 1. Contagem total de processos (respeitando o filtro)
@@ -32,10 +30,10 @@ async def get_dashboard_data(
     status_counts_query = db.query(Mapa.status, func.count(Processo.id))\
                             .join(Processo, Mapa.id_proc == Processo.id)\
                             .group_by(Mapa.status).all()
-    status_counts = {status: count for status, count in status_counts_query if status}
+    status_counts = {status or "Sem status": count for status, count in status_counts_query}
 
-    # 3. Processos modificados recentemente (respeitando o filtro)
-    processos_recentes_tuplas = query.order_by(Processo.data_publicacao.desc()).limit(5).all()
+    # 3. Processos modificados recentemente (usando data_modificacao do Mapa)
+    processos_recentes_tuplas = query.order_by(Mapa.data_modificacao.desc()).limit(10).all()
 
     # Monta a lista de processos recentes a partir das tuplas
     processos_recentes = []
@@ -43,8 +41,8 @@ async def get_dashboard_data(
         processos_recentes.append({
             "id": processo.id,
             "titulo": processo.titulo,
-            "status": mapa.status,
-            "dataModificacao": processo.data_publicacao
+            "status": mapa.status or "Sem status",
+            "dataModificacao": mapa.data_modificacao.isoformat() if mapa.data_modificacao else None
         })
 
     return {

@@ -6,8 +6,12 @@ import {
   ChevronRight, 
   ChevronDown,
   Plus,
+  Maximize2,
   MoreHorizontal,
-  Trash2
+  Trash2,
+  Map,
+  Eye,
+  Edit
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,7 +37,7 @@ import { useToast } from "@/hooks/use-toast";
 interface ProcessNode {
   id: number;
   titulo: string;
-  type: 'macro' | 'process';
+  type: 'macro' | 'process' | 'map';
   children?: ProcessNode[];
   has_map?: boolean;
   isExpanded?: boolean;
@@ -124,6 +128,34 @@ export const ProcessTree = () => {
     },
   });
 
+  // Mutation para deletar mapa
+  const deleteMapMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`http://localhost:8000/mapas/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Erro ao deletar mapa');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
+      toast({
+        title: "Mapa excluído",
+        description: "O mapa foi excluído com sucesso.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao excluir",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleDeleteClick = (node: ProcessNode, e: React.MouseEvent) => {
     e.stopPropagation();
     setDeleteDialog({ open: true, node });
@@ -134,8 +166,10 @@ export const ProcessTree = () => {
     
     if (deleteDialog.node.type === 'macro') {
       deleteMacroMutation.mutate(deleteDialog.node.id);
-    } else {
+    } else if (deleteDialog.node.type === 'process') {
       deleteProcessMutation.mutate(deleteDialog.node.id);
+    } else if (deleteDialog.node.type === 'map') {
+      deleteMapMutation.mutate(deleteDialog.node.id);
     }
     
     setDeleteDialog({ open: false, node: null });
@@ -152,28 +186,77 @@ export const ProcessTree = () => {
     return expandedState[node.id] ?? node.isExpanded ?? false;
   };
 
-  const isDeleting = deleteProcessMutation.isPending || deleteMacroMutation.isPending;
+  // Função para abrir mapa no editor
+  const openMap = (mapId: number, mode: 'view' | 'edit' = 'view') => {
+    window.open(`http://localhost:8080?mapa=${mapId}&mode=${mode}`, '_blank');
+  };
+
+  const isDeleting = deleteProcessMutation.isPending || deleteMacroMutation.isPending || deleteMapMutation.isPending;
 
   const renderNode = (node: ProcessNode, level: number = 0) => {
     const selected = selectedId === node.id;
+    const isMap = node.type === 'map';
     const isFolder = node.type === 'macro' || (node.type === 'process' && node.children && node.children.length > 0);
     const hasChildren = node.children && node.children.length > 0;
     const nodeExpanded = isExpanded(node);
 
+    // Ícone baseado no tipo
+    const getIcon = () => {
+      if (isMap) {
+        return <Map className="h-4 w-4 text-emerald-500" />;
+      }
+      if (node.type === 'macro') {
+        return nodeExpanded ? (
+          <FolderOpen className="h-4 w-4 text-violet-500" />
+        ) : (
+          <Folder className="h-4 w-4 text-violet-500" />
+        );
+      }
+      if (node.type === 'process') {
+        if (hasChildren) {
+          return nodeExpanded ? (
+            <FolderOpen className="h-4 w-4 text-blue-500" />
+          ) : (
+            <Folder className="h-4 w-4 text-blue-500" />
+          );
+        }
+        return <FileText className="h-4 w-4 text-blue-500" />;
+      }
+      return <FileText className="h-4 w-4 text-muted-foreground" />;
+    };
+
+    // Estilo do background baseado no tipo quando selecionado
+    const getSelectedStyle = () => {
+      if (!selected) return '';
+      switch (node.type) {
+        case 'macro':
+          return 'bg-violet-100 dark:bg-violet-950/50 text-violet-900 dark:text-violet-100';
+        case 'process':
+          return 'bg-blue-100 dark:bg-blue-950/50 text-blue-900 dark:text-blue-100';
+        case 'map':
+          return 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-900 dark:text-emerald-100';
+        default:
+          return 'bg-accent text-accent-foreground';
+      }
+    };
+
     return (
-      <div key={node.id} className="w-full">
+      <div key={`${node.type}-${node.id}`} className="w-full">
         <div 
           className={`
             flex items-center gap-2 py-1.5 px-2 rounded-md cursor-pointer
             transition-colors duration-200 group
             ${selected 
-              ? 'bg-accent text-accent-foreground font-medium' 
+              ? `${getSelectedStyle()} font-medium` 
               : 'hover:bg-muted/50'
             }
           `}
           style={{ paddingLeft: `${level * 16 + 8}px` }}
           onClick={() => {
-            if (isFolder) {
+            if (isMap) {
+              // Ao clicar em um mapa, abre na view
+              openMap(node.id, 'view');
+            } else if (isFolder) {
               toggleFolder(node.id);
             } else {
               setSelectedId(node.id);
@@ -198,17 +281,9 @@ export const ProcessTree = () => {
             </Button>
           )}
           
-          {!hasChildren && <div className="w-4" />}
+          {(!hasChildren || isMap) && <div className="w-4" />}
           
-          {isFolder ? (
-            nodeExpanded ? (
-              <FolderOpen className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <Folder className="h-4 w-4 text-muted-foreground" />
-            )
-          ) : (
-            <FileText className="h-4 w-4 text-primary" />
-          )}
+          {getIcon()}
           
           <span className="text-sm flex-1 truncate">{node.titulo}</span>
           
@@ -224,9 +299,26 @@ export const ProcessTree = () => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Renomear</DropdownMenuItem>
-              <DropdownMenuItem>Duplicar</DropdownMenuItem>
-              <DropdownMenuSeparator />
+              {isMap && (
+                <>
+                  <DropdownMenuItem onClick={() => openMap(node.id, 'view')}>
+                    <Eye className="h-4 w-4 mr-2" />
+                    Visualizar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => openMap(node.id, 'edit')}>
+                    <Edit className="h-4 w-4 mr-2" />
+                    Editar
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              {!isMap && (
+                <>
+                  <DropdownMenuItem>Renomear</DropdownMenuItem>
+                  <DropdownMenuItem>Duplicar</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
               <DropdownMenuItem 
                 className="text-destructive focus:text-destructive"
                 onClick={(e) => handleDeleteClick(node, e)}
@@ -260,8 +352,14 @@ export const ProcessTree = () => {
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between p-3 border-b">
         <h3 className="font-semibold text-sm">Árvore de Processos</h3>
-        <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
-          <Plus className="h-3 w-3" />
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          className="h-6 w-6 p-0"
+          onClick={() => window.open('/novo-processo', '_blank')}
+          title="Criar novo processo"
+        >
+          <Maximize2 className="h-3 w-3" />
         </Button>
       </div>
       
@@ -286,12 +384,20 @@ export const ProcessTree = () => {
                     Isso também excluirá todos os processos e mapas associados.
                   </span>
                 </>
-              ) : (
+              ) : deleteDialog.node?.type === 'process' ? (
                 <>
                   Tem certeza que deseja excluir o processo <strong>"{deleteDialog.node?.titulo}"</strong>?
                   <br />
                   <span className="text-destructive">
                     Isso também excluirá todos os mapas e metadados associados.
+                  </span>
+                </>
+              ) : (
+                <>
+                  Tem certeza que deseja excluir o mapa <strong>"{deleteDialog.node?.titulo}"</strong>?
+                  <br />
+                  <span className="text-destructive">
+                    Esta ação não pode ser desfeita.
                   </span>
                 </>
               )}

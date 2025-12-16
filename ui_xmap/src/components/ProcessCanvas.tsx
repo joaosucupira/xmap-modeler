@@ -1,30 +1,36 @@
-// Updated ProcessCanvas.tsx with delete functionality
+// ProcessCanvas.tsx with move functionality and tree-matching color scheme
+// MacroProcesso: violet/purple (violeta/roxo)
+// Processo: blue/cyan (azul/ciano)
+// Mapa: emerald/teal (verde/turquesa)
 
 import { useState } from "react";
 import { 
-  ExternalLink,
   Plus,
-  ArrowRight,
   FileText,
-  Settings,
   Loader2,
   Trash2,
   MoreVertical,
   Edit,
-  AlertTriangle
+  AlertTriangle,
+  Folder,
+  Map,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  Layers,
+  Move,
+  MoveRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   DropdownMenu,
@@ -43,9 +49,24 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  SelectGroup,
+  SelectLabel,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ProcessNode {
   id: number;
@@ -54,13 +75,6 @@ interface ProcessNode {
   children?: ProcessNode[];
   proc_id?: number;
   data_criacao?: string;
-}
-
-interface ProcessMap {
-  id: number;
-  map_id: number;
-  titulo: string;
-  data_criacao: string;
 }
 
 const API_URL = "http://localhost:8000";
@@ -143,172 +157,357 @@ const deleteMap = async (mapId: number) => {
   return response.json();
 };
 
-interface MapCardProps {
-  map: ProcessMap;
-  onView: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  formatLastModified: (dateStr: string) => string;
-}
-
-const MapCard: React.FC<MapCardProps> = ({ map, onView, onEdit, onDelete, formatLastModified }) => (
-  <Card className="hover:shadow-md transition-shadow">
-    <CardHeader className="pb-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-primary" />
-          <CardTitle className="text-lg">{map.titulo}</CardTitle>
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={onView}>
-              <ArrowRight className="h-4 w-4 mr-2" />
-              Visualizar
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onEdit}>
-              <Edit className="h-4 w-4 mr-2" />
-              Editar
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
-              <Trash2 className="h-4 w-4 mr-2" />
-              Excluir
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-      <CardDescription>
-        Modificado {formatLastModified(map.data_criacao)}
-      </CardDescription>
-    </CardHeader>
-    <CardContent className="pt-0">
-      <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={onView} className="flex-1">
-          <ArrowRight className="h-3 w-3 mr-1" />
-          Visualizar
-        </Button>
-        <Button variant="default" size="sm" onClick={onEdit} className="flex-1">
-          <Settings className="h-3 w-3 mr-1" />
-          Editar
-        </Button>
-      </div>
-    </CardContent>
-  </Card>
-);
-
-interface ProcessSectionProps {
-  node: ProcessNode;
-  level: number;
-  formatLastModified: (dateStr: string) => string;
-  onAddProcess: (parentId: number, parentType: 'macro' | 'process') => void;
-  onAddMap: (procId: number) => void;
-  onDeleteProcess: (processId: number, titulo: string) => void;
-  onDeleteMap: (mapId: number, titulo: string) => void;
-}
-
-const ProcessSection: React.FC<ProcessSectionProps> = ({ 
-  node, 
-  level, 
-  formatLastModified, 
-  onAddProcess, 
-  onAddMap,
-  onDeleteProcess,
-  onDeleteMap
+const moveProcess = async ({ processId, targetMacroId, targetProcessoId }: { 
+  processId: number; 
+  targetMacroId?: number; 
+  targetProcessoId?: number 
 }) => {
-  const maps: ProcessMap[] = [];
-  const subProcesses: ProcessNode[] = [];
-
-  if (node.children) {
-    node.children.forEach(child => {
-      if (child.type === 'map') {
-        maps.push({
-          id: child.proc_id!,
-          map_id: child.id,
-          titulo: child.titulo,
-          data_criacao: child.data_criacao || new Date().toISOString(),
-        });
-      } else if (child.type === 'process') {
-        subProcesses.push(child);
-      }
-    });
+  const response = await fetch(`${API_URL}/processos/${processId}/move`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      target_macro_id: targetMacroId, 
+      target_processo_id: targetProcessoId 
+    }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to move process');
   }
+  return response.json();
+};
 
-  const handleViewMap = (mapId: number) => {
-    window.open(`http://localhost:8080?mapa=${mapId}&mode=view`, '_blank');
-  };
+const moveMap = async ({ mapId, targetProcessoId }: { mapId: number; targetProcessoId: number }) => {
+  const response = await fetch(`${API_URL}/mapas/${mapId}/move`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ target_processo_id: targetProcessoId }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to move map');
+  }
+  return response.json();
+};
 
-  const handleEditMap = (mapId: number) => {
-    window.open(`http://localhost:8080?mapa=${mapId}&mode=edit`, '_blank');
+// Helper para extrair todos os processos da hierarquia
+const getAllProcesses = (hierarchy: ProcessNode[]): { id: number; titulo: string; macroTitulo: string }[] => {
+  const processes: { id: number; titulo: string; macroTitulo: string }[] = [];
+  
+  const traverse = (node: ProcessNode, macroTitulo: string) => {
+    if (node.type === 'process') {
+      processes.push({ id: node.id, titulo: node.titulo, macroTitulo });
+      node.children?.forEach(child => traverse(child, macroTitulo));
+    }
   };
+  
+  hierarchy.forEach(macro => {
+    macro.children?.forEach(child => traverse(child, macro.titulo));
+  });
+  
+  return processes;
+};
+
+// Componente para Mapa - EMERALD/TEAL (verde/turquesa)
+interface MapItemProps {
+  map: ProcessNode;
+  onDelete: () => void;
+  onMove: () => void;
+  formatDate: (dateStr: string) => string;
+}
+
+const MapItem: React.FC<MapItemProps> = ({ map, onDelete, onMove, formatDate }) => {
+  const handleView = () => window.open(`http://localhost:8080?mapa=${map.id}&mode=view`, '_blank');
+  const handleEdit = () => window.open(`http://localhost:8080?mapa=${map.id}&mode=edit`, '_blank');
 
   return (
-    <div className={`space-y-4 ${level > 1 ? 'pl-6 border-l-2 border-muted' : ''}`}>
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">{node.titulo}</h3>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => onAddMap(node.id)}>
-            <Plus className="h-4 w-4 mr-1" />
-            Mapa
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => onAddProcess(node.id, 'process')}>
-            <Plus className="h-4 w-4 mr-1" />
-            Processo
-          </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onDeleteProcess(node.id, node.titulo)} className="text-destructive focus:text-destructive">
-                <Trash2 className="h-4 w-4 mr-2" />
-                Excluir Processo
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+    <div className="group flex items-center gap-3 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 hover:shadow-md transition-all">
+      <div className="p-2 rounded-md bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+        <Map className="h-4 w-4" />
       </div>
-      
-      {maps.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {maps.map(map => (
-            <MapCard 
-              key={map.map_id} 
-              map={map} 
-              onView={() => handleViewMap(map.map_id)} 
-              onEdit={() => handleEditMap(map.map_id)} 
-              onDelete={() => onDeleteMap(map.map_id, map.titulo)}
-              formatLastModified={formatLastModified} 
-            />
-          ))}
-        </div>
-      )}
-      
-      {subProcesses.map(sub => (
-        <ProcessSection 
-          key={sub.id} 
-          node={sub} 
-          level={level + 1} 
-          formatLastModified={formatLastModified} 
-          onAddProcess={onAddProcess} 
-          onAddMap={onAddMap}
-          onDeleteProcess={onDeleteProcess}
-          onDeleteMap={onDeleteMap}
-        />
-      ))}
-      
-      {maps.length === 0 && subProcesses.length === 0 && (
-        <p className="text-muted-foreground text-center py-4 text-sm">
-          Nenhum mapa ou subprocesso ainda.
+      <div className="flex-1 min-w-0">
+        <p className="font-medium text-sm truncate">{map.titulo}</p>
+        <p className="text-xs text-muted-foreground">
+          {map.data_criacao ? formatDate(map.data_criacao) : 'Data não disponível'}
         </p>
-      )}
+      </div>
+      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-emerald-100 dark:hover:bg-emerald-900" onClick={handleView} title="Visualizar">
+          <Eye className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-emerald-100 dark:hover:bg-emerald-900" onClick={handleEdit} title="Editar">
+          <Edit className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-emerald-100 dark:hover:bg-emerald-900" onClick={onMove} title="Mover mapa">
+          <MoveRight className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-red-100 dark:hover:bg-red-900" onClick={onDelete} title="Excluir">
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
+  );
+};
+
+// Componente para Processo - BLUE/CYAN (azul/ciano)
+interface ProcessItemProps {
+  process: ProcessNode;
+  onAddMap: (procId: number) => void;
+  onAddSubProcess: (parentId: number) => void;
+  onDeleteProcess: (id: number, titulo: string) => void;
+  onDeleteMap: (id: number, titulo: string) => void;
+  onMoveProcess: (id: number, titulo: string) => void;
+  onMoveMap: (id: number, titulo: string) => void;
+  formatDate: (dateStr: string) => string;
+}
+
+const ProcessItem: React.FC<ProcessItemProps> = ({ 
+  process, 
+  onAddMap, 
+  onAddSubProcess, 
+  onDeleteProcess, 
+  onDeleteMap,
+  onMoveProcess,
+  onMoveMap,
+  formatDate 
+}) => {
+  const [isOpen, setIsOpen] = useState(true);
+  
+  const maps = process.children?.filter(c => c.type === 'map') || [];
+  const subProcesses = process.children?.filter(c => c.type === 'process') || [];
+  const hasChildren = maps.length > 0 || subProcesses.length > 0;
+
+  return (
+    <div className="border border-blue-200 dark:border-blue-800 rounded-lg overflow-hidden bg-white dark:bg-slate-900">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-950/30">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0 hover:bg-blue-100 dark:hover:bg-blue-900">
+              {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </Button>
+          </CollapsibleTrigger>
+          
+          <div className="p-2 rounded-md bg-gradient-to-br from-blue-500 to-cyan-600 text-white">
+            <FileText className="h-4 w-4" />
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <p className="font-semibold truncate">{process.titulo}</p>
+              <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                Processo
+              </Badge>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+              {maps.length > 0 && <span>{maps.length} mapa{maps.length > 1 ? 's' : ''}</span>}
+              {subProcesses.length > 0 && <span>{subProcesses.length} subprocesso{subProcesses.length > 1 ? 's' : ''}</span>}
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" className="h-8 border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950" onClick={() => onAddMap(process.id)}>
+              <Map className="h-3 w-3 mr-1" />
+              Mapa
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-950" onClick={() => onAddSubProcess(process.id)}>
+              <Plus className="h-3 w-3 mr-1" />
+              Sub
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-blue-100 dark:hover:bg-blue-900">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => onMoveProcess(process.id, process.titulo)}>
+                  <Move className="h-4 w-4 mr-2" />
+                  Mover Processo
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => onDeleteProcess(process.id, process.titulo)} className="text-destructive">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Excluir Processo
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+        
+        <CollapsibleContent>
+          <div className="p-4 space-y-4">
+            {/* Mapas */}
+            {maps.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
+                  <Map className="h-4 w-4" />
+                  Mapas ({maps.length})
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pl-6">
+                  {maps.map(map => (
+                    <MapItem 
+                      key={map.id} 
+                      map={map} 
+                      onDelete={() => onDeleteMap(map.id, map.titulo)}
+                      onMove={() => onMoveMap(map.id, map.titulo)}
+                      formatDate={formatDate}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Subprocessos */}
+            {subProcesses.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-blue-700 dark:text-blue-400">
+                  <Layers className="h-4 w-4" />
+                  Subprocessos ({subProcesses.length})
+                </div>
+                <div className="space-y-3 pl-6 border-l-2 border-blue-200 dark:border-blue-800">
+                  {subProcesses.map(sub => (
+                    <ProcessItem
+                      key={sub.id}
+                      process={sub}
+                      onAddMap={onAddMap}
+                      onAddSubProcess={onAddSubProcess}
+                      onDeleteProcess={onDeleteProcess}
+                      onDeleteMap={onDeleteMap}
+                      onMoveProcess={onMoveProcess}
+                      onMoveMap={onMoveMap}
+                      formatDate={formatDate}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {!hasChildren && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Nenhum mapa ou subprocesso. Clique nos botões acima para adicionar.
+              </p>
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  );
+};
+
+// Componente para MacroProcesso - VIOLET/PURPLE (violeta/roxo)
+interface MacroProcessCardProps {
+  macro: ProcessNode;
+  onAddProcess: (macroId: number) => void;
+  onDeleteMacro: (id: number, titulo: string) => void;
+  onAddMap: (procId: number) => void;
+  onAddSubProcess: (parentId: number) => void;
+  onDeleteProcess: (id: number, titulo: string) => void;
+  onDeleteMap: (id: number, titulo: string) => void;
+  onMoveProcess: (id: number, titulo: string) => void;
+  onMoveMap: (id: number, titulo: string) => void;
+  formatDate: (dateStr: string) => string;
+}
+
+const MacroProcessCard: React.FC<MacroProcessCardProps> = ({
+  macro,
+  onAddProcess,
+  onDeleteMacro,
+  onAddMap,
+  onAddSubProcess,
+  onDeleteProcess,
+  onDeleteMap,
+  onMoveProcess,
+  onMoveMap,
+  formatDate
+}) => {
+  const [isOpen, setIsOpen] = useState(true);
+  const processes = macro.children?.filter(c => c.type === 'process') || [];
+
+  return (
+    <Card className="overflow-hidden border-2 border-violet-300 dark:border-purple-700 shadow-lg">
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CardHeader className="bg-gradient-to-r from-violet-500 to-purple-600 text-white">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <CollapsibleTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/20">
+                  {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+                </Button>
+              </CollapsibleTrigger>
+              <div className="p-2 rounded-md bg-white/20">
+                <Folder className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">{macro.titulo}</CardTitle>
+                <CardDescription className="text-violet-200">
+                  MacroProcesso • {processes.length} processo{processes.length !== 1 ? 's' : ''}
+                </CardDescription>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="bg-white/20 hover:bg-white/30 text-white border-0"
+                onClick={() => onAddProcess(macro.id)}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Processo
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem 
+                    onClick={() => onDeleteMacro(macro.id, macro.titulo)} 
+                    className="text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Excluir MacroProcesso
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </CardHeader>
+        
+        <CollapsibleContent>
+          <CardContent className="p-6 bg-violet-50 dark:bg-purple-950/20">
+            {processes.length > 0 ? (
+              <div className="space-y-4">
+                {processes.map(process => (
+                  <ProcessItem
+                    key={process.id}
+                    process={process}
+                    onAddMap={onAddMap}
+                    onAddSubProcess={onAddSubProcess}
+                    onDeleteProcess={onDeleteProcess}
+                    onDeleteMap={onDeleteMap}
+                    onMoveProcess={onMoveProcess}
+                    onMoveMap={onMoveMap}
+                    formatDate={formatDate}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <FileText className="h-12 w-12 text-violet-300 dark:text-purple-700 mx-auto mb-3" />
+                <p className="text-muted-foreground mb-4">
+                  Nenhum processo neste macroprocesso
+                </p>
+                <Button variant="outline" onClick={() => onAddProcess(macro.id)} className="border-violet-300 text-violet-700 hover:bg-violet-100 dark:border-purple-700 dark:text-purple-400 dark:hover:bg-purple-950">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Adicionar Primeiro Processo
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
   );
 };
 
@@ -336,12 +535,27 @@ export const ProcessCanvas = () => {
     titulo: string;
   } | null>(null);
 
+  // Move dialog states
+  const [moveProcessDialog, setMoveProcessDialog] = useState<{
+    isOpen: boolean;
+    processId: number;
+    titulo: string;
+  } | null>(null);
+  
+  const [moveMapDialog, setMoveMapDialog] = useState<{
+    isOpen: boolean;
+    mapId: number;
+    titulo: string;
+  } | null>(null);
+  
+  const [selectedMoveTarget, setSelectedMoveTarget] = useState<string>('');
+
   const { data: hierarchy = [], isLoading } = useQuery<ProcessNode[]>({
     queryKey: ['hierarchy'],
     queryFn: fetchHierarchy,
   });
 
-  // Create mutations
+  // Mutations
   const macroMutation = useMutation({
     mutationFn: createMacroProcesso,
     onSuccess: () => {
@@ -404,7 +618,6 @@ export const ProcessCanvas = () => {
     },
   });
 
-  // Delete mutations
   const deleteMacroMutation = useMutation({
     mutationFn: deleteMacroProcesso,
     onSuccess: () => {
@@ -438,6 +651,32 @@ export const ProcessCanvas = () => {
     },
     onError: () => {
       toast({ variant: "destructive", title: "Erro", description: "Falha ao excluir Mapa." });
+    },
+  });
+
+  const moveProcessMutation = useMutation({
+    mutationFn: moveProcess,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
+      setMoveProcessDialog(null);
+      setSelectedMoveTarget('');
+      toast({ title: "Sucesso", description: "Processo movido com sucesso!" });
+    },
+    onError: (error: Error) => {
+      toast({ variant: "destructive", title: "Erro", description: error.message || "Falha ao mover processo." });
+    },
+  });
+
+  const moveMapMutation = useMutation({
+    mutationFn: moveMap,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
+      setMoveMapDialog(null);
+      setSelectedMoveTarget('');
+      toast({ title: "Sucesso", description: "Mapa movido com sucesso!" });
+    },
+    onError: (error: Error) => {
+      toast({ variant: "destructive", title: "Erro", description: error.message || "Falha ao mover mapa." });
     },
   });
 
@@ -486,9 +725,15 @@ export const ProcessCanvas = () => {
     }
   };
 
-  const handleAddProcess = (parentId: number, parentType: 'macro' | 'process') => {
+  const handleAddProcessToMacro = (macroId: number) => {
+    setProcessParentId(macroId);
+    setProcessParentType('macro');
+    setIsProcessDialogOpen(true);
+  };
+
+  const handleAddSubProcess = (parentId: number) => {
     setProcessParentId(parentId);
-    setProcessParentType(parentType);
+    setProcessParentType('process');
     setIsProcessDialogOpen(true);
   };
 
@@ -509,57 +754,108 @@ export const ProcessCanvas = () => {
     setDeleteDialog({ isOpen: true, type: 'map', id: mapId, titulo });
   };
 
+  const handleMoveProcess = (processId: number, titulo: string) => {
+    setMoveProcessDialog({ isOpen: true, processId, titulo });
+    setSelectedMoveTarget('');
+  };
+
+  const handleMoveMap = (mapId: number, titulo: string) => {
+    setMoveMapDialog({ isOpen: true, mapId, titulo });
+    setSelectedMoveTarget('');
+  };
+
   const confirmDelete = () => {
     if (!deleteDialog) return;
-    
     switch (deleteDialog.type) {
-      case 'macro':
-        deleteMacroMutation.mutate(deleteDialog.id);
-        break;
-      case 'process':
-        deleteProcessMutation.mutate(deleteDialog.id);
-        break;
-      case 'map':
-        deleteMapMutation.mutate(deleteDialog.id);
-        break;
+      case 'macro': deleteMacroMutation.mutate(deleteDialog.id); break;
+      case 'process': deleteProcessMutation.mutate(deleteDialog.id); break;
+      case 'map': deleteMapMutation.mutate(deleteDialog.id); break;
     }
   };
 
-  const formatLastModified = (dateStr: string) => {
-    const now = new Date();
-    const date = new Date(dateStr);
-    const diffHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+  const confirmMoveProcess = () => {
+    if (!moveProcessDialog || !selectedMoveTarget) return;
     
-    if (diffHours < 1) return 'Agora';
-    if (diffHours < 24) return `${diffHours} horas atrás`;
-    return `${Math.floor(diffHours / 24)} dias atrás`;
+    const [type, id] = selectedMoveTarget.split('-');
+    
+    if (type === 'macro') {
+      moveProcessMutation.mutate({
+        processId: moveProcessDialog.processId,
+        targetMacroId: parseInt(id)
+      });
+    } else if (type === 'process') {
+      moveProcessMutation.mutate({
+        processId: moveProcessDialog.processId,
+        targetProcessoId: parseInt(id)
+      });
+    }
+  };
+
+  const confirmMoveMap = () => {
+    if (!moveMapDialog || !selectedMoveTarget) return;
+    
+    const processId = parseInt(selectedMoveTarget);
+    moveMapMutation.mutate({
+      mapId: moveMapDialog.mapId,
+      targetProcessoId: processId
+    });
+  };
+
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   const isDeleting = deleteMacroMutation.isPending || deleteProcessMutation.isPending || deleteMapMutation.isPending;
+  const isMoving = moveProcessMutation.isPending || moveMapMutation.isPending;
+
+  // Helper para obter todos os processos para seleção
+  const allProcesses = getAllProcesses(hierarchy);
+
+  // Stats
+  const totalMacros = hierarchy.length;
+  const totalProcesses = hierarchy.reduce((acc, m) => acc + (m.children?.filter(c => c.type === 'process').length || 0), 0);
+  const totalMaps = hierarchy.reduce((acc, m) => {
+    let count = 0;
+    const countMaps = (node: ProcessNode) => {
+      node.children?.forEach(c => {
+        if (c.type === 'map') count++;
+        else countMaps(c);
+      });
+    };
+    countMaps(m);
+    return acc + count;
+  }, 0);
 
   return (
-    <div className="h-full flex flex-col bg-gradient-subtle">
+    <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950">
       {/* Header */}
-      <div className="p-6 bg-card border-b shadow-soft">
-        <div className="flex items-center justify-between">
+      <div className="p-6 bg-white dark:bg-slate-900 border-b shadow-sm">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Canvas de Modelagem
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-purple-600 bg-clip-text text-transparent">
+              Canvas de Processos
             </h1>
             <p className="text-muted-foreground mt-1">
-              Crie e edite diagramas de processo BPMN
+              Organize e gerencie sua hierarquia de processos
             </p>
           </div>
           <Dialog open={isMacroDialogOpen} onOpenChange={setIsMacroDialogOpen}>
             <DialogTrigger asChild>
-              <Button className="flex items-center gap-2 bg-gradient-primary hover:bg-gradient-primary/90">
-                <Plus className="h-4 w-4" />
-                Novo Macro Processo
+              <Button className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700">
+                <Plus className="h-4 w-4 mr-2" />
+                Novo MacroProcesso
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Criar Novo Macro Processo</DialogTitle>
+                <DialogTitle>Criar Novo MacroProcesso</DialogTitle>
               </DialogHeader>
               <form onSubmit={handleMacroSubmit} className="space-y-4">
                 <div>
@@ -568,16 +864,45 @@ export const ProcessCanvas = () => {
                     id="macro-titulo" 
                     value={macroTitulo} 
                     onChange={(e) => setMacroTitulo(e.target.value)} 
-                    placeholder="Digite o título do Macro Processo" 
+                    placeholder="Ex: Gestão de Pessoas" 
                     required 
                   />
                 </div>
-                <Button type="submit" disabled={macroMutation.isPending}>
-                  {macroMutation.isPending ? 'Criando...' : 'Criar'}
+                <Button type="submit" disabled={macroMutation.isPending} className="w-full bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700">
+                  {macroMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Plus className="h-4 w-4 mr-2" />}
+                  {macroMutation.isPending ? 'Criando...' : 'Criar MacroProcesso'}
                 </Button>
               </form>
             </DialogContent>
           </Dialog>
+        </div>
+
+        {/* Stats */}
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded bg-gradient-to-br from-violet-500 to-purple-600">
+              <Folder className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-sm">
+              <strong>{totalMacros}</strong> MacroProcesso{totalMacros !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded bg-gradient-to-br from-blue-500 to-cyan-600">
+              <FileText className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-sm">
+              <strong>{totalProcesses}</strong> Processo{totalProcesses !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded bg-gradient-to-br from-emerald-500 to-teal-600">
+              <Map className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-sm">
+              <strong>{totalMaps}</strong> Mapa{totalMaps !== 1 ? 's' : ''}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -585,77 +910,38 @@ export const ProcessCanvas = () => {
       <div className="flex-1 p-6 overflow-auto">
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <Loader2 className="h-8 w-8 animate-spin text-violet-600" />
           </div>
         ) : hierarchy.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center">
-            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+            <div className="p-4 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 mb-4">
+              <Folder className="h-12 w-12 text-white" />
+            </div>
             <h3 className="text-lg font-semibold mb-2">Nenhum macroprocesso encontrado</h3>
-            <p className="text-muted-foreground mb-4">
-              Crie seu primeiro macroprocesso para começar
+            <p className="text-muted-foreground mb-4 max-w-md">
+              Comece criando seu primeiro macroprocesso para organizar seus processos de negócio.
             </p>
-            <Button onClick={() => setIsMacroDialogOpen(true)} className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Criar Primeiro Macro Processo
+            <Button onClick={() => setIsMacroDialogOpen(true)} className="bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700">
+              <Plus className="h-4 w-4 mr-2" />
+              Criar Primeiro MacroProcesso
             </Button>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-6">
             {hierarchy.map((macro) => (
-              <Card key={macro.id} className="overflow-hidden">
-                <CardHeader className="bg-muted/50">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-xl">{macro.titulo}</CardTitle>
-                      <CardDescription>Macro Processo</CardDescription>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleAddProcess(macro.id, 'macro')}>
-                        <Plus className="h-4 w-4 mr-1" />
-                        Processo
-                      </Button>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteMacro(macro.id, macro.titulo)} 
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Excluir Macro Processo
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-6">
-                  {macro.children && macro.children.length > 0 ? (
-                    <div className="space-y-6">
-                      {macro.children.map(child => (
-                        <ProcessSection 
-                          key={child.id} 
-                          node={child} 
-                          level={1} 
-                          formatLastModified={formatLastModified} 
-                          onAddProcess={handleAddProcess} 
-                          onAddMap={handleAddMap}
-                          onDeleteProcess={handleDeleteProcess}
-                          onDeleteMap={handleDeleteMap}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground text-center py-8">
-                      Nenhum processo neste macroprocesso ainda.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+              <MacroProcessCard
+                key={macro.id}
+                macro={macro}
+                onAddProcess={handleAddProcessToMacro}
+                onDeleteMacro={handleDeleteMacro}
+                onAddMap={handleAddMap}
+                onAddSubProcess={handleAddSubProcess}
+                onDeleteProcess={handleDeleteProcess}
+                onDeleteMap={handleDeleteMap}
+                onMoveProcess={handleMoveProcess}
+                onMoveMap={handleMoveMap}
+                formatDate={formatDate}
+              />
             ))}
           </div>
         )}
@@ -665,7 +951,9 @@ export const ProcessCanvas = () => {
       <Dialog open={isProcessDialogOpen} onOpenChange={setIsProcessDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Criar Novo Processo</DialogTitle>
+            <DialogTitle>
+              {processParentType === 'macro' ? 'Criar Novo Processo' : 'Criar Subprocesso'}
+            </DialogTitle>
           </DialogHeader>
           <form onSubmit={handleProcessSubmit} className="space-y-4">
             <div>
@@ -674,7 +962,7 @@ export const ProcessCanvas = () => {
                 id="process-titulo" 
                 value={processTitulo} 
                 onChange={(e) => setProcessTitulo(e.target.value)} 
-                placeholder="Digite o título do Processo" 
+                placeholder="Ex: Recrutamento e Seleção" 
                 required 
               />
             </div>
@@ -685,11 +973,16 @@ export const ProcessCanvas = () => {
                 type="number"
                 value={processOrdem} 
                 onChange={(e) => setProcessOrdem(e.target.value)} 
-                placeholder="Ordem" 
+                placeholder="1, 2, 3..." 
               />
             </div>
-            <Button type="submit" disabled={processMutation.isPending || associationMutation.isPending}>
-              {processMutation.isPending || associationMutation.isPending ? 'Criando...' : 'Criar'}
+            <Button type="submit" disabled={processMutation.isPending || associationMutation.isPending} className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700">
+              {(processMutation.isPending || associationMutation.isPending) ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Plus className="h-4 w-4 mr-2" />
+              )}
+              {(processMutation.isPending || associationMutation.isPending) ? 'Criando...' : 'Criar Processo'}
             </Button>
           </form>
         </DialogContent>
@@ -699,21 +992,26 @@ export const ProcessCanvas = () => {
       <Dialog open={isMapDialogOpen} onOpenChange={setIsMapDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Criar Novo Mapa</DialogTitle>
+            <DialogTitle>Criar Novo Mapa BPMN</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleMapSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="map-titulo">Título</Label>
+              <Label htmlFor="map-titulo">Título do Mapa</Label>
               <Input 
                 id="map-titulo" 
                 value={mapTitulo} 
                 onChange={(e) => setMapTitulo(e.target.value)} 
-                placeholder="Digite o título do Mapa" 
+                placeholder="Ex: Fluxo de Contratação" 
                 required 
               />
             </div>
-            <Button type="submit" disabled={mapMutation.isPending}>
-              {mapMutation.isPending ? 'Criando...' : 'Salvar'}
+            <Button type="submit" disabled={mapMutation.isPending} className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700">
+              {mapMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Map className="h-4 w-4 mr-2" />
+              )}
+              {mapMutation.isPending ? 'Criando...' : 'Criar Mapa'}
             </Button>
           </form>
         </DialogContent>
@@ -728,21 +1026,18 @@ export const ProcessCanvas = () => {
               Confirmar exclusão
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja excluir{' '}
-              <strong>"{deleteDialog?.titulo}"</strong>?
+              Tem certeza que deseja excluir <strong>"{deleteDialog?.titulo}"</strong>?
               {deleteDialog?.type === 'macro' && (
-                <span className="block mt-2 text-destructive">
-                  ⚠️ Isso pode afetar os processos associados a este macroprocesso.
+                <span className="block mt-2 text-destructive font-medium">
+                  ⚠️ Isso excluirá todos os processos e mapas associados.
                 </span>
               )}
               {deleteDialog?.type === 'process' && (
-                <span className="block mt-2 text-destructive">
-                  ⚠️ Isso pode afetar os subprocessos e mapas associados.
+                <span className="block mt-2 text-destructive font-medium">
+                  ⚠️ Isso excluirá todos os subprocessos e mapas associados.
                 </span>
               )}
-              <span className="block mt-2">
-                Esta ação não pode ser desfeita.
-              </span>
+              <span className="block mt-2 text-sm">Esta ação não pode ser desfeita.</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -752,18 +1047,145 @@ export const ProcessCanvas = () => {
               disabled={isDeleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeleting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Excluindo...
-                </>
-              ) : (
-                'Excluir'
-              )}
+              {isDeleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+              {isDeleting ? 'Excluindo...' : 'Excluir'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Move Process Dialog */}
+      <Dialog open={moveProcessDialog?.isOpen} onOpenChange={(open) => !open && setMoveProcessDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Move className="h-5 w-5 text-blue-500" />
+              Mover Processo
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Movendo: <strong>"{moveProcessDialog?.titulo}"</strong>
+            </p>
+            <div className="space-y-2">
+              <Label>Selecione o destino</Label>
+              <Select value={selectedMoveTarget} onValueChange={setSelectedMoveTarget}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Escolha um destino..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <ScrollArea className="h-72">
+                    <SelectGroup>
+                      <SelectLabel className="flex items-center gap-2">
+                        <Folder className="h-4 w-4 text-violet-500" />
+                        MacroProcessos
+                      </SelectLabel>
+                      {hierarchy.map(macro => (
+                        <SelectItem key={`macro-${macro.id}`} value={`macro-${macro.id}`}>
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-gradient-to-br from-violet-500 to-purple-600" />
+                            {macro.titulo}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                    <SelectGroup>
+                      <SelectLabel className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-blue-500" />
+                        Processos (como subprocesso)
+                      </SelectLabel>
+                      {allProcesses
+                        .filter(p => p.id !== moveProcessDialog?.processId)
+                        .map(proc => (
+                          <SelectItem key={`process-${proc.id}`} value={`process-${proc.id}`}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-gradient-to-br from-blue-500 to-cyan-600" />
+                              <span>{proc.titulo}</span>
+                              <span className="text-xs text-muted-foreground">({proc.macroTitulo})</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                    </SelectGroup>
+                  </ScrollArea>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setMoveProcessDialog(null)} disabled={isMoving}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={confirmMoveProcess} 
+              disabled={!selectedMoveTarget || isMoving}
+              className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700"
+            >
+              {isMoving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MoveRight className="h-4 w-4 mr-2" />}
+              {isMoving ? 'Movendo...' : 'Mover'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Move Map Dialog */}
+      <Dialog open={moveMapDialog?.isOpen} onOpenChange={(open) => !open && setMoveMapDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Move className="h-5 w-5 text-emerald-500" />
+              Mover Mapa
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Movendo: <strong>"{moveMapDialog?.titulo}"</strong>
+            </p>
+            <div className="space-y-2">
+              <Label>Selecione o processo de destino</Label>
+              <Select value={selectedMoveTarget} onValueChange={setSelectedMoveTarget}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Escolha um processo..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <ScrollArea className="h-72">
+                    {hierarchy.map(macro => (
+                      <SelectGroup key={macro.id}>
+                        <SelectLabel className="flex items-center gap-2 text-violet-700 dark:text-violet-400">
+                          <Folder className="h-4 w-4" />
+                          {macro.titulo}
+                        </SelectLabel>
+                        {allProcesses
+                          .filter(p => p.macroTitulo === macro.titulo)
+                          .map(proc => (
+                            <SelectItem key={proc.id} value={proc.id.toString()}>
+                              <div className="flex items-center gap-2">
+                                <FileText className="h-4 w-4 text-blue-500" />
+                                {proc.titulo}
+                              </div>
+                            </SelectItem>
+                          ))}
+                      </SelectGroup>
+                    ))}
+                  </ScrollArea>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setMoveMapDialog(null)} disabled={isMoving}>
+              Cancelar
+            </Button>
+            <Button 
+              onClick={confirmMoveMap} 
+              disabled={!selectedMoveTarget || isMoving}
+              className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700"
+            >
+              {isMoving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <MoveRight className="h-4 w-4 mr-2" />}
+              {isMoving ? 'Movendo...' : 'Mover'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

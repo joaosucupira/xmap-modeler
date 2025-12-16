@@ -181,8 +181,7 @@ const Index = () => {
               onClick={() => setActiveView('mockup')}
             >
               <Map className="h-4 w-4" />
-              Mockup Processo
-            </Button>
+Mapeamentos            </Button>
             <Button
               variant={activeView === 'search' ? 'default' : 'ghost'}
               className="justify-start gap-2"
