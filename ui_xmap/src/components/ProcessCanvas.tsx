@@ -1,4 +1,4 @@
-// Updated ProcessCanvas.tsx with add process buttons
+// Updated ProcessCanvas.tsx with delete functionality
 
 import { useState } from "react";
 import { 
@@ -7,7 +7,11 @@ import {
   ArrowRight,
   FileText,
   Settings,
-  Loader2
+  Loader2,
+  Trash2,
+  MoreVertical,
+  Edit,
+  AlertTriangle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -19,7 +23,26 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
@@ -34,14 +57,16 @@ interface ProcessNode {
 }
 
 interface ProcessMap {
-  id: number; // proc_id
+  id: number;
   map_id: number;
   titulo: string;
   data_criacao: string;
 }
 
+const API_URL = "http://localhost:8000";
+
 const fetchHierarchy = async (): Promise<ProcessNode[]> => {
-  const response = await fetch('http://localhost:8000/hierarchy/');
+  const response = await fetch(`${API_URL}/hierarchy/`);
   if (!response.ok) {
     throw new Error('Failed to fetch hierarchy');
   }
@@ -50,16 +75,20 @@ const fetchHierarchy = async (): Promise<ProcessNode[]> => {
 };
 
 const createMacroProcesso = async (titulo: string) => {
-  const response = await fetch('http://localhost:8000/macroprocessos/', {
+  const response = await fetch(`${API_URL}/macroprocessos/`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ titulo }),
   });
-  if (!response.ok) {
-    throw new Error('Failed to create macroprocesso');
-  }
+  if (!response.ok) throw new Error('Failed to create macroprocesso');
+  return response.json();
+};
+
+const deleteMacroProcesso = async (macroId: number) => {
+  const response = await fetch(`${API_URL}/macroprocessos/${macroId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('Failed to delete macroprocesso');
   return response.json();
 };
 
@@ -67,55 +96,91 @@ const createProcess = async ({ titulo, id_pai, ordem }: { titulo: string; id_pai
   const body: any = { titulo };
   if (id_pai !== undefined) body.id_pai = id_pai;
   if (ordem !== undefined) body.ordem = ordem;
-  const response = await fetch('http://localhost:8000/processos/', {
+  const response = await fetch(`${API_URL}/processos/`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!response.ok) {
-    throw new Error('Failed to create process');
-  }
+  if (!response.ok) throw new Error('Failed to create process');
+  return response.json();
+};
+
+const deleteProcess = async (processId: number) => {
+  const response = await fetch(`${API_URL}/processos/${processId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('Failed to delete process');
   return response.json();
 };
 
 const createAssociation = async ({ macro_processo_id, processo_id, ordem }: { macro_processo_id: number; processo_id: number; ordem?: number }) => {
   const body: any = { macro_processo_id, processo_id };
   if (ordem !== undefined) body.ordem = ordem;
-  const response = await fetch('http://localhost:8000/macroprocesso_processos/', {
+  const response = await fetch(`${API_URL}/macroprocesso_processos/`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
-  if (!response.ok) {
-    throw new Error('Failed to create association');
-  }
+  if (!response.ok) throw new Error('Failed to create association');
   return response.json();
 };
 
 const createMap = async ({ id_proc, titulo, XML }: { id_proc: number; titulo: string; XML: string }) => {
-  const response = await fetch('http://localhost:8000/mapas/', {
+  const response = await fetch(`${API_URL}/mapas/`, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id_proc, titulo, XML }),
   });
-  if (!response.ok) {
-    throw new Error('Failed to create map');
-  }
+  if (!response.ok) throw new Error('Failed to create map');
   return response.json();
 };
 
-const MapCard: React.FC<{ map: ProcessMap; onView: () => void; onEdit: () => void; formatLastModified: (dateStr: string) => string }> = ({ map, onView, onEdit, formatLastModified }) => (
-  <Card className="hover:shadow-md transition-shadow cursor-pointer">
+const deleteMap = async (mapId: number) => {
+  const response = await fetch(`${API_URL}/mapas/${mapId}`, {
+    method: 'DELETE',
+  });
+  if (!response.ok) throw new Error('Failed to delete map');
+  return response.json();
+};
+
+interface MapCardProps {
+  map: ProcessMap;
+  onView: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  formatLastModified: (dateStr: string) => string;
+}
+
+const MapCard: React.FC<MapCardProps> = ({ map, onView, onEdit, onDelete, formatLastModified }) => (
+  <Card className="hover:shadow-md transition-shadow">
     <CardHeader className="pb-3">
-      <div className="flex items-center gap-2">
-        <FileText className="h-5 w-5 text-primary" />
-        <CardTitle className="text-lg">{map.titulo}</CardTitle>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <FileText className="h-5 w-5 text-primary" />
+          <CardTitle className="text-lg">{map.titulo}</CardTitle>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onView}>
+              <ArrowRight className="h-4 w-4 mr-2" />
+              Visualizar
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onEdit}>
+              <Edit className="h-4 w-4 mr-2" />
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Excluir
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <CardDescription>
         Modificado {formatLastModified(map.data_criacao)}
@@ -123,21 +188,11 @@ const MapCard: React.FC<{ map: ProcessMap; onView: () => void; onEdit: () => voi
     </CardHeader>
     <CardContent className="pt-0">
       <div className="flex gap-2">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={onView}
-          className="flex-1"
-        >
+        <Button variant="outline" size="sm" onClick={onView} className="flex-1">
           <ArrowRight className="h-3 w-3 mr-1" />
           Visualizar
         </Button>
-        <Button 
-          variant="default" 
-          size="sm" 
-          onClick={onEdit}
-          className="flex-1"
-        >
+        <Button variant="default" size="sm" onClick={onEdit} className="flex-1">
           <Settings className="h-3 w-3 mr-1" />
           Editar
         </Button>
@@ -146,7 +201,25 @@ const MapCard: React.FC<{ map: ProcessMap; onView: () => void; onEdit: () => voi
   </Card>
 );
 
-const ProcessSection: React.FC<{ node: ProcessNode; level: number; formatLastModified: (dateStr: string) => string; onAddProcess: (parentId: number, parentType: 'macro' | 'process') => void; onAddMap: (procId: number) => void }> = ({ node, level, formatLastModified, onAddProcess, onAddMap }) => {
+interface ProcessSectionProps {
+  node: ProcessNode;
+  level: number;
+  formatLastModified: (dateStr: string) => string;
+  onAddProcess: (parentId: number, parentType: 'macro' | 'process') => void;
+  onAddMap: (procId: number) => void;
+  onDeleteProcess: (processId: number, titulo: string) => void;
+  onDeleteMap: (mapId: number, titulo: string) => void;
+}
+
+const ProcessSection: React.FC<ProcessSectionProps> = ({ 
+  node, 
+  level, 
+  formatLastModified, 
+  onAddProcess, 
+  onAddMap,
+  onDeleteProcess,
+  onDeleteMap
+}) => {
   const maps: ProcessMap[] = [];
   const subProcesses: ProcessNode[] = [];
 
@@ -154,8 +227,8 @@ const ProcessSection: React.FC<{ node: ProcessNode; level: number; formatLastMod
     node.children.forEach(child => {
       if (child.type === 'map') {
         maps.push({
-          id: child.proc_id!, // Mantém o ID original para uso como key se necessário
-          map_id: child.id,   // Este é o ID real do mapa
+          id: child.proc_id!,
+          map_id: child.id,
           titulo: child.titulo,
           data_criacao: child.data_criacao || new Date().toISOString(),
         });
@@ -165,50 +238,75 @@ const ProcessSection: React.FC<{ node: ProcessNode; level: number; formatLastMod
     });
   }
 
-  // CORREÇÃO AQUI: Renomeado para mapId para clareza
   const handleViewMap = (mapId: number) => {
     window.open(`http://localhost:8080?mapa=${mapId}&mode=view`, '_blank');
   };
 
-  // CORREÇÃO AQUI: Renomeado para mapId para clareza
   const handleEditMap = (mapId: number) => {
     window.open(`http://localhost:8080?mapa=${mapId}&mode=edit`, '_blank');
   };
 
   return (
-    <div className={`space-y-4 ${level > 1 ? 'pl-6' : ''}`}>
+    <div className={`space-y-4 ${level > 1 ? 'pl-6 border-l-2 border-muted' : ''}`}>
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium">{node.titulo}</h3>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={() => onAddMap(node.id)}>
             <Plus className="h-4 w-4 mr-1" />
-            Adicionar Mapa
+            Mapa
           </Button>
           <Button variant="outline" size="sm" onClick={() => onAddProcess(node.id, 'process')}>
             <Plus className="h-4 w-4 mr-1" />
-            Adicionar Processo
+            Processo
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onDeleteProcess(node.id, node.titulo)} className="text-destructive focus:text-destructive">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir Processo
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
+      
       {maps.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {maps.map(map => (
             <MapCard 
-              key={map.id} 
+              key={map.map_id} 
               map={map} 
-              // CORREÇÃO AQUI: Passando map.map_id ao invés de map.id
               onView={() => handleViewMap(map.map_id)} 
               onEdit={() => handleEditMap(map.map_id)} 
+              onDelete={() => onDeleteMap(map.map_id, map.titulo)}
               formatLastModified={formatLastModified} 
             />
           ))}
         </div>
       )}
+      
       {subProcesses.map(sub => (
-        <ProcessSection key={sub.id} node={sub} level={level + 1} formatLastModified={formatLastModified} onAddProcess={onAddProcess} onAddMap={onAddMap} />
+        <ProcessSection 
+          key={sub.id} 
+          node={sub} 
+          level={level + 1} 
+          formatLastModified={formatLastModified} 
+          onAddProcess={onAddProcess} 
+          onAddMap={onAddMap}
+          onDeleteProcess={onDeleteProcess}
+          onDeleteMap={onDeleteMap}
+        />
       ))}
+      
       {maps.length === 0 && subProcesses.length === 0 && (
-        <p className="text-muted-foreground text-center py-4">Nenhum mapa neste processo.</p>
+        <p className="text-muted-foreground text-center py-4 text-sm">
+          Nenhum mapa ou subprocesso ainda.
+        </p>
       )}
     </div>
   );
@@ -217,6 +315,8 @@ const ProcessSection: React.FC<{ node: ProcessNode; level: number; formatLastMod
 export const ProcessCanvas = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  
+  // Dialog states
   const [isMacroDialogOpen, setIsMacroDialogOpen] = useState(false);
   const [macroTitulo, setMacroTitulo] = useState('');
   const [isProcessDialogOpen, setIsProcessDialogOpen] = useState(false);
@@ -227,29 +327,31 @@ export const ProcessCanvas = () => {
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
   const [mapTitulo, setMapTitulo] = useState('');
   const [mapProcId, setMapProcId] = useState<number | null>(null);
+  
+  // Delete dialog states
+  const [deleteDialog, setDeleteDialog] = useState<{
+    isOpen: boolean;
+    type: 'macro' | 'process' | 'map';
+    id: number;
+    titulo: string;
+  } | null>(null);
 
   const { data: hierarchy = [], isLoading } = useQuery<ProcessNode[]>({
     queryKey: ['hierarchy'],
     queryFn: fetchHierarchy,
   });
 
+  // Create mutations
   const macroMutation = useMutation({
     mutationFn: createMacroProcesso,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
       setIsMacroDialogOpen(false);
       setMacroTitulo('');
-      toast({
-        title: "Sucesso",
-        description: "MacroProcesso criado com sucesso!",
-      });
+      toast({ title: "Sucesso", description: "MacroProcesso criado com sucesso!" });
     },
-    onError: (error) => {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Falha ao criar MacroProcesso.",
-      });
+    onError: () => {
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao criar MacroProcesso." });
     },
   });
 
@@ -257,13 +359,14 @@ export const ProcessCanvas = () => {
     mutationFn: createProcess,
     onSuccess: (data) => {
       if (processParentType === 'macro') {
-        associationMutation.mutate({ macro_processo_id: processParentId!, processo_id: data.processo.id, ordem: processOrdem ? parseInt(processOrdem) : undefined });
+        associationMutation.mutate({ 
+          macro_processo_id: processParentId!, 
+          processo_id: data.processo.id, 
+          ordem: processOrdem ? parseInt(processOrdem) : undefined 
+        });
       } else {
         queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
-        toast({
-          title: "Sucesso",
-          description: "Processo criado com sucesso!",
-        });
+        toast({ title: "Sucesso", description: "Processo criado com sucesso!" });
       }
       setIsProcessDialogOpen(false);
       setProcessTitulo('');
@@ -271,12 +374,8 @@ export const ProcessCanvas = () => {
       setProcessParentId(null);
       setProcessParentType(null);
     },
-    onError: (error) => {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Falha ao criar Processo.",
-      });
+    onError: () => {
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao criar Processo." });
     },
   });
 
@@ -284,17 +383,10 @@ export const ProcessCanvas = () => {
     mutationFn: createAssociation,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
-      toast({
-        title: "Sucesso",
-        description: "Associação criada com sucesso!",
-      });
+      toast({ title: "Sucesso", description: "Processo associado com sucesso!" });
     },
-    onError: (error) => {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Falha ao criar associação.",
-      });
+    onError: () => {
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao criar associação." });
     },
   });
 
@@ -305,20 +397,51 @@ export const ProcessCanvas = () => {
       setIsMapDialogOpen(false);
       setMapTitulo('');
       setMapProcId(null);
-      toast({
-        title: "Sucesso",
-        description: "Mapa criado com sucesso!",
-      });
+      toast({ title: "Sucesso", description: "Mapa criado com sucesso!" });
     },
-    onError: (error) => {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Falha ao criar Mapa.",
-      });
+    onError: () => {
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao criar Mapa." });
     },
   });
 
+  // Delete mutations
+  const deleteMacroMutation = useMutation({
+    mutationFn: deleteMacroProcesso,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
+      setDeleteDialog(null);
+      toast({ title: "Sucesso", description: "MacroProcesso excluído com sucesso!" });
+    },
+    onError: () => {
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao excluir MacroProcesso." });
+    },
+  });
+
+  const deleteProcessMutation = useMutation({
+    mutationFn: deleteProcess,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
+      setDeleteDialog(null);
+      toast({ title: "Sucesso", description: "Processo excluído com sucesso!" });
+    },
+    onError: () => {
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao excluir Processo." });
+    },
+  });
+
+  const deleteMapMutation = useMutation({
+    mutationFn: deleteMap,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
+      setDeleteDialog(null);
+      toast({ title: "Sucesso", description: "Mapa excluído com sucesso!" });
+    },
+    onError: () => {
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao excluir Mapa." });
+    },
+  });
+
+  // Handlers
   const handleMacroSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (macroTitulo.trim()) {
@@ -329,7 +452,11 @@ export const ProcessCanvas = () => {
   const handleProcessSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (processTitulo.trim()) {
-      processMutation.mutate({ titulo: processTitulo, id_pai: processParentType === 'process' ? processParentId! : undefined, ordem: processOrdem ? parseInt(processOrdem) : undefined });
+      processMutation.mutate({ 
+        titulo: processTitulo, 
+        id_pai: processParentType === 'process' ? processParentId! : undefined, 
+        ordem: processOrdem ? parseInt(processOrdem) : undefined 
+      });
     }
   };
 
@@ -354,8 +481,7 @@ export const ProcessCanvas = () => {
       </bpmndi:BPMNShape>
     </bpmndi:BPMNPlane>
   </bpmndi:BPMNDiagram>
-</bpmn:definitions>
-`;
+</bpmn:definitions>`;
       mapMutation.mutate({ id_proc: mapProcId, titulo: mapTitulo, XML: defaultXML });
     }
   };
@@ -371,6 +497,34 @@ export const ProcessCanvas = () => {
     setIsMapDialogOpen(true);
   };
 
+  const handleDeleteMacro = (macroId: number, titulo: string) => {
+    setDeleteDialog({ isOpen: true, type: 'macro', id: macroId, titulo });
+  };
+
+  const handleDeleteProcess = (processId: number, titulo: string) => {
+    setDeleteDialog({ isOpen: true, type: 'process', id: processId, titulo });
+  };
+
+  const handleDeleteMap = (mapId: number, titulo: string) => {
+    setDeleteDialog({ isOpen: true, type: 'map', id: mapId, titulo });
+  };
+
+  const confirmDelete = () => {
+    if (!deleteDialog) return;
+    
+    switch (deleteDialog.type) {
+      case 'macro':
+        deleteMacroMutation.mutate(deleteDialog.id);
+        break;
+      case 'process':
+        deleteProcessMutation.mutate(deleteDialog.id);
+        break;
+      case 'map':
+        deleteMapMutation.mutate(deleteDialog.id);
+        break;
+    }
+  };
+
   const formatLastModified = (dateStr: string) => {
     const now = new Date();
     const date = new Date(dateStr);
@@ -380,6 +534,8 @@ export const ProcessCanvas = () => {
     if (diffHours < 24) return `${diffHours} horas atrás`;
     return `${Math.floor(diffHours / 24)} dias atrás`;
   };
+
+  const isDeleting = deleteMacroMutation.isPending || deleteProcessMutation.isPending || deleteMapMutation.isPending;
 
   return (
     <div className="h-full flex flex-col bg-gradient-subtle">
@@ -396,9 +552,7 @@ export const ProcessCanvas = () => {
           </div>
           <Dialog open={isMacroDialogOpen} onOpenChange={setIsMacroDialogOpen}>
             <DialogTrigger asChild>
-              <Button 
-                className="flex items-center gap-2 bg-gradient-primary hover:bg-gradient-primary/90"
-              >
+              <Button className="flex items-center gap-2 bg-gradient-primary hover:bg-gradient-primary/90">
                 <Plus className="h-4 w-4" />
                 Novo Macro Processo
               </Button>
@@ -431,7 +585,7 @@ export const ProcessCanvas = () => {
       <div className="flex-1 p-6 overflow-auto">
         {isLoading ? (
           <div className="flex justify-center items-center h-64">
-            <p>Carregando processos...</p>
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : hierarchy.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center">
@@ -448,25 +602,60 @@ export const ProcessCanvas = () => {
         ) : (
           <div className="space-y-8">
             {hierarchy.map((macro) => (
-              <div key={macro.id}>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold">{macro.titulo}</h2>
-                  <Button variant="outline" size="sm" onClick={() => handleAddProcess(macro.id, 'macro')}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    Adicionar Processo
-                  </Button>
-                </div>
-                <Separator className="mb-4" />
-                {macro.children && macro.children.length > 0 ? (
-                  <div className="space-y-6">
-                    {macro.children.map(child => (
-                      <ProcessSection key={child.id} node={child} level={1} formatLastModified={formatLastModified} onAddProcess={(id, type) => handleAddProcess(id, type)} onAddMap={handleAddMap} />
-                    ))}
+              <Card key={macro.id} className="overflow-hidden">
+                <CardHeader className="bg-muted/50">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-xl">{macro.titulo}</CardTitle>
+                      <CardDescription>Macro Processo</CardDescription>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => handleAddProcess(macro.id, 'macro')}>
+                        <Plus className="h-4 w-4 mr-1" />
+                        Processo
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteMacro(macro.id, macro.titulo)} 
+                            className="text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Excluir Macro Processo
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </div>
-                ) : (
-                  <p className="text-muted-foreground text-center py-8">Nenhum processo neste macroprocesso ainda.</p>
-                )}
-              </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  {macro.children && macro.children.length > 0 ? (
+                    <div className="space-y-6">
+                      {macro.children.map(child => (
+                        <ProcessSection 
+                          key={child.id} 
+                          node={child} 
+                          level={1} 
+                          formatLastModified={formatLastModified} 
+                          onAddProcess={handleAddProcess} 
+                          onAddMap={handleAddMap}
+                          onDeleteProcess={handleDeleteProcess}
+                          onDeleteMap={handleDeleteMap}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground text-center py-8">
+                      Nenhum processo neste macroprocesso ainda.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
             ))}
           </div>
         )}
@@ -529,6 +718,52 @@ export const ProcessCanvas = () => {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialog?.isOpen} onOpenChange={(open) => !open && setDeleteDialog(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Confirmar exclusão
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir{' '}
+              <strong>"{deleteDialog?.titulo}"</strong>?
+              {deleteDialog?.type === 'macro' && (
+                <span className="block mt-2 text-destructive">
+                  ⚠️ Isso pode afetar os processos associados a este macroprocesso.
+                </span>
+              )}
+              {deleteDialog?.type === 'process' && (
+                <span className="block mt-2 text-destructive">
+                  ⚠️ Isso pode afetar os subprocessos e mapas associados.
+                </span>
+              )}
+              <span className="block mt-2">
+                Esta ação não pode ser desfeita.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete} 
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                'Excluir'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

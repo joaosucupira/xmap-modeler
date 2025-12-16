@@ -6,16 +6,29 @@ import {
   ChevronRight, 
   ChevronDown,
   Plus,
-  MoreHorizontal
+  MoreHorizontal,
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useQuery } from "@tanstack/react-query";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProcessNode {
   id: number;
@@ -47,6 +60,86 @@ export const ProcessTree = () => {
 
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [expandedState, setExpandedState] = useState<Record<number, boolean>>({});
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; node: ProcessNode | null }>({
+    open: false,
+    node: null,
+  });
+
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // Mutation para deletar processo
+  const deleteProcessMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`http://localhost:8000/processos/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Erro ao deletar processo');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
+      toast({
+        title: "Processo excluído",
+        description: "O processo foi excluído com sucesso.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao excluir",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation para deletar macroprocesso
+  const deleteMacroMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const response = await fetch(`http://localhost:8000/macroprocessos/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Erro ao deletar macroprocesso');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['hierarchy'] });
+      toast({
+        title: "Macroprocesso excluído",
+        description: "O macroprocesso foi excluído com sucesso.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Erro ao excluir",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteClick = (node: ProcessNode, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeleteDialog({ open: true, node });
+  };
+
+  const confirmDelete = () => {
+    if (!deleteDialog.node) return;
+    
+    if (deleteDialog.node.type === 'macro') {
+      deleteMacroMutation.mutate(deleteDialog.node.id);
+    } else {
+      deleteProcessMutation.mutate(deleteDialog.node.id);
+    }
+    
+    setDeleteDialog({ open: false, node: null });
+  };
 
   const toggleFolder = (id: number) => {
     setExpandedState(prev => ({
@@ -58,6 +151,8 @@ export const ProcessTree = () => {
   const isExpanded = (node: ProcessNode) => {
     return expandedState[node.id] ?? node.isExpanded ?? false;
   };
+
+  const isDeleting = deleteProcessMutation.isPending || deleteMacroMutation.isPending;
 
   const renderNode = (node: ProcessNode, level: number = 0) => {
     const selected = selectedId === node.id;
@@ -123,6 +218,7 @@ export const ProcessTree = () => {
                 variant="ghost" 
                 size="sm" 
                 className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => e.stopPropagation()}
               >
                 <MoreHorizontal className="h-3 w-3" />
               </Button>
@@ -130,7 +226,15 @@ export const ProcessTree = () => {
             <DropdownMenuContent align="end">
               <DropdownMenuItem>Renomear</DropdownMenuItem>
               <DropdownMenuItem>Duplicar</DropdownMenuItem>
-              <DropdownMenuItem className="text-destructive">Excluir</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                className="text-destructive focus:text-destructive"
+                onClick={(e) => handleDeleteClick(node, e)}
+                disabled={isDeleting}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -164,6 +268,46 @@ export const ProcessTree = () => {
       <div className="flex-1 overflow-auto p-2">
         {processes.map(process => renderNode(process))}
       </div>
+
+      {/* Dialog de confirmação de exclusão */}
+      <AlertDialog 
+        open={deleteDialog.open} 
+        onOpenChange={(open) => setDeleteDialog({ open, node: open ? deleteDialog.node : null })}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteDialog.node?.type === 'macro' ? (
+                <>
+                  Tem certeza que deseja excluir o macroprocesso <strong>"{deleteDialog.node?.titulo}"</strong>?
+                  <br />
+                  <span className="text-destructive">
+                    Isso também excluirá todos os processos e mapas associados.
+                  </span>
+                </>
+              ) : (
+                <>
+                  Tem certeza que deseja excluir o processo <strong>"{deleteDialog.node?.titulo}"</strong>?
+                  <br />
+                  <span className="text-destructive">
+                    Isso também excluirá todos os mapas e metadados associados.
+                  </span>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

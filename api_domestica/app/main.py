@@ -1,6 +1,7 @@
 # api_domestica/app/main.py
 # (Modified to add /hierarchy/ endpoint)
 
+from sqlalchemy import String
 from fastapi import FastAPI, Depends, HTTPException,status
 from sqlalchemy.orm import Session
 
@@ -38,6 +39,8 @@ origins = [
     "http://127.0.0.1:4500",
     "http://localhost:8080",
     "http://127.0.0.1:8080",
+    "http://localhost:5173",    # Vite default port
+    "http://127.0.0.1:5173",
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -175,13 +178,43 @@ async def get_processo_filhos(processo_id: int, filhos: bool = False, db: Sessio
 
 @app.delete("/processos/{processo_id}")
 async def delete_processo(processo_id: int, db: Session = Depends(get_db)):
-    # proc = db.query(Processo).filter(Processo.id == processo_id).first()
-    # if not proc:
-    #     raise HTTPException(status_code=404, detail="Processo não encontrado.")
     proc = validate_entity(db, processo_id, Processo)
+    
+    # 1. Deletar associações com macroprocessos
+    db.query(MacroProcessoProcesso).filter(
+        MacroProcessoProcesso.processo_id == processo_id
+    ).delete()
+    
+    # 2. Deletar mapas associados ao processo
+    db.query(Mapa).filter(Mapa.id_proc == processo_id).delete()
+    
+    # 3. Deletar metadados associados aos mapas do processo
+    # (Os metadados usam id_processo como id do mapa, então precisamos buscar os mapas primeiro)
+    mapas_ids = [m.id for m in db.query(Mapa.id).filter(Mapa.id_proc == processo_id).all()]
+    if mapas_ids:
+        db.query(Metadados).filter(Metadados.id_processo.in_(mapas_ids)).delete(synchronize_session=False)
+    
+    # 4. Atualizar processos filhos (remover referência ao pai) ou deletá-los
+    # Opção A: Remover referência ao pai (os filhos ficam órfãos)
+    # db.query(Processo).filter(Processo.id_pai == processo_id).update({"id_pai": None})
+    
+    # Opção B: Deletar filhos recursivamente
+    def delete_children(parent_id):
+        children = db.query(Processo).filter(Processo.id_pai == parent_id).all()
+        for child in children:
+            delete_children(child.id)  # Recursivo
+            # Deletar mapas do filho
+            db.query(Mapa).filter(Mapa.id_proc == child.id).delete()
+            db.delete(child)
+    
+    delete_children(processo_id)
+    
+    # 5. Finalmente, deletar o processo
     db.delete(proc)
     db.commit()
+    
     return {"message": "Processo deletado com sucesso!"}
+
 
 @app.put("/processos/{processo_id}")
 async def update_processo(processo_id: int, id_pai: int = None, id_area: int = None, ordem: int = None, titulo: str = None, data_publicacao: str = None, db: Session = Depends(get_db)):
@@ -327,7 +360,46 @@ async def get_metadados(db: Session = Depends(get_db)):
             for meta in metadados
         ]
     }
+# Adicione após o endpoint @app.get("/mapas/xml/{mapa_id}")
 
+@app.delete("/mapas/{mapa_id}")
+async def delete_mapa(mapa_id: int, db: Session = Depends(get_db)):
+    mapa = validate_entity(db, mapa_id, Mapa)
+    
+    # Opcional: deletar metadados associados ao mapa
+    db.query(Metadados).filter(Metadados.id_processo == mapa_id).delete()
+    
+    db.delete(mapa)
+    db.commit()
+    return {"message": "Mapa deletado com sucesso!"}
+
+
+@app.get("/metadados/buscar/", response_model=dict[str, List[MetadadosOut]])
+async def buscar_metadados(
+    termo: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Busca metadados por termo em dados ou LGPD.
+    """
+    metadados = db.query(Metadados).filter(
+        (Metadados.dados.cast(String).ilike(f"%{termo}%")) |
+        (Metadados.lgpd.ilike(f"%{termo}%"))
+    ).all()
+    
+    return {
+        "metadados": [
+            {
+                "id": meta.id,
+                "nome": meta.nome,
+                "dados": meta.dados,
+                "lgpd": meta.lgpd,
+                "id_processo": meta.id_processo,
+                "id_atividade": meta.id_atividade
+            }
+            for meta in metadados
+        ]
+    }
 @app.post("/metadados/", response_model=MetadadosResponse)
 def create_or_update_metadados(
     metadados: MetadadosCreate, 
@@ -477,12 +549,20 @@ async def get_macroprocesso(macro_id: int, db: Session = Depends(get_db)):
     macro = validate_entity(db, macro_id, MacroProcesso)
     return {"macroprocesso": {"id": macro.id, "titulo": macro.titulo, "data_publicacao": macro.data_publicacao}}
 
+
 @app.delete("/macroprocessos/{macro_id}")
 async def delete_macroprocesso(macro_id: int, db: Session = Depends(get_db)):
     macro = validate_entity(db, macro_id, MacroProcesso)
+    
+    # Deletar associações com processos primeiro
+    db.query(MacroProcessoProcesso).filter(
+        MacroProcessoProcesso.macro_processo_id == macro_id
+    ).delete()
+    
     db.delete(macro)
     db.commit()
     return {"message": "MacroProcesso deletado com sucesso!"}
+
 
 @app.put("/macroprocessos/{macro_id}")
 async def update_macroprocesso(macro_id: int, titulo: str = None, data_publicacao: str = None, db: Session = Depends(get_db)):
