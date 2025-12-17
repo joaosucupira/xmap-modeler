@@ -63,8 +63,8 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 @app.on_event("startup")
 def on_startup():
     
-   create_all_tables()
-   #drop_and_create_all_tables() # CUIDADO! Isto irá apagar todos os dados existentes e criar as tabelas novamente.
+   #create_all_tables()
+   drop_and_create_all_tables() # CUIDADO! Isto irá apagar todos os dados existentes e criar as tabelas novamente.
 
 
 # Endpoints
@@ -580,32 +580,48 @@ async def delete_mapa(mapa_id: int, db: Session = Depends(get_db)):
     return {"message": "Mapa deletado com sucesso!"}
 
 
-@app.get("/metadados/buscar/", response_model=dict[str, List[MetadadosOut]])
+@app.get("/metadados/buscar/")
 async def buscar_metadados(
     termo: str,
     db: Session = Depends(get_db)
 ):
     """
-    Busca metadados por termo em dados ou LGPD.
+    Busca metadados por termo em dados, LGPD ou nome.
+    Retorna também o nome do mapa e do processo associado.
     """
     metadados = db.query(Metadados).filter(
         (Metadados.dados.cast(String).ilike(f"%{termo}%")) |
-        (Metadados.lgpd.ilike(f"%{termo}%"))
+        (Metadados.lgpd.ilike(f"%{termo}%")) |
+        (Metadados.nome.ilike(f"%{termo}%"))
     ).all()
     
-    return {
-        "metadados": [
-            {
-                "id": meta.id,
-                "nome": meta.nome,
-                "dados": meta.dados,
-                "lgpd": meta.lgpd,
-                "id_processo": meta.id_processo,
-                "id_atividade": meta.id_atividade
-            }
-            for meta in metadados
-        ]
-    }
+    result = []
+    for meta in metadados:
+        # Buscar o mapa associado
+        mapa = db.query(Mapa).filter(Mapa.id == meta.id_processo).first()
+        
+        # Buscar o processo associado ao mapa
+        processo_nome = None
+        mapa_titulo = None
+        if mapa:
+            mapa_titulo = mapa.titulo
+            processo = db.query(Processo).filter(Processo.id == mapa.id_proc).first()
+            if processo:
+                processo_nome = processo.titulo
+        
+        result.append({
+            "id": meta.id,
+            "nome": meta.nome,
+            "dados": meta.dados,
+            "lgpd": meta.lgpd,
+            "id_processo": meta.id_processo,  # ID do Mapa
+            "id_atividade": meta.id_atividade,
+            "mapa_titulo": mapa_titulo,
+            "processo_nome": processo_nome
+        })
+    
+    return {"metadados": result}
+
 @app.post("/metadados/", response_model=MetadadosResponse)
 def create_or_update_metadados(
     metadados: MetadadosCreate, 

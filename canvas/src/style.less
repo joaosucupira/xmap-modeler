@@ -1,225 +1,1335 @@
-// --- Paleta de Cores Vibrantes ---
-// Sinta-se à vontade para alterar estas cores!
-@cor-primaria: #007bff;      // Um azul vibrante para botões e links
-@cor-destaque: #17a2b8;     // Um verde-água para botões ativos e destaques
-@cor-fundo-geral: #f8f9fa;   // Um cinza muito claro para o fundo
-@cor-fundo-painel: #ffffff; // Branco para o painel
-@cor-texto: #495057;         // Um cinza escuro para textos, mais suave que o preto
-@cor-borda: #dee2e6;        // Uma borda suave
-@cor-erro: #dc3545;          // Vermelho para mensagens de erro
+// =====================================================
+// XMAP BPMN Editor - Interface Moderna
+// =====================================================
 
-// --- Fontes ---
-@fonte-principal: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+// =====================================================
+// VARIÁVEIS DE DESIGN
+// =====================================================
 
-// --- Estilos Globais ---
+// =====================================================
+// XMAP BPMN Editor - Interface Moderna
+// =====================================================
+
+// =====================================================
+// VARIÁVEIS DE DESIGN
+// =====================================================
+
+// Cores principais (consistente com XMAP)
+@violet-50: #f5f3ff;
+@violet-100: #ede9fe;
+@violet-200: #ddd6fe;
+@violet-400: #a78bfa;
+@violet-500: #8b5cf6;
+@violet-600: #7c3aed;
+@violet-700: #6d28d9;
+
+@blue-50: #eff6ff;
+@blue-100: #dbeafe;
+@blue-500: #3b82f6;
+@blue-600: #2563eb;
+
+@emerald-50: #ecfdf5;
+@emerald-100: #d1fae5;
+@emerald-500: #10b981;
+@emerald-600: #059669;
+
+@amber-50: #fffbeb;
+@amber-100: #fef3c7;
+@amber-500: #f59e0b;
+
+@red-50: #fef2f2;
+@red-100: #fee2e2;
+@red-500: #ef4444;
+
+@slate-50: #f8fafc;
+@slate-100: #f1f5f9;
+@slate-200: #e2e8f0;
+@slate-300: #cbd5e1;
+@slate-400: #94a3b8;
+@slate-500: #64748b;
+@slate-600: #475569;
+@slate-700: #334155;
+@slate-800: #1e293b;
+@slate-900: #0f172a;
+
+// ...existing code até a linha 1068 (antes do primeiro VIEWER MODE)...
+
+// Cores semânticas
+@cor-primaria: @violet-600;
+@cor-primaria-hover: @violet-700;
+@cor-sucesso: @emerald-500;
+@cor-aviso: @amber-500;
+@cor-erro: @red-500;
+
+@cor-fundo: @slate-50;
+@cor-superficie: #ffffff;
+@cor-borda: @slate-200;
+@cor-texto: @slate-800;
+@cor-texto-secundario: @slate-500;
+
+// Sombras
+@sombra-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+@sombra-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+@sombra-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+@sombra-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+// Tipografia
+@fonte: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+// Dimensões
+@header-height: 56px;
+@panel-width: 320px;
+@radius-sm: 6px;
+@radius-md: 8px;
+@radius-lg: 12px;
+@radius-full: 9999px;
+
+// Transições
+@transicao-rapida: all 0.15s ease;
+@transicao: all 0.2s ease;
+@transicao-lenta: all 0.3s ease;
+
+// =====================================================
+// RESET E BASE
+// =====================================================
+
 * {
   box-sizing: border-box;
-}
-
-body,
-html {
-  font-family: @fonte-principal; // ALTERADO: Nova fonte
-  font-size: 14px;              // AUMENTADO: Para melhor legibilidade
-  height: 100%;
-  max-height: 100%;
-  padding: 0;
   margin: 0;
-  background-color: @cor-fundo-geral; // NOVO: Cor de fundo suave
-  color: @cor-texto;                  // NOVO: Cor de texto padrão
+  padding: 0;
 }
 
-a:link {
-  text-decoration: none;
+body, html {
+  font-family: @fonte;
+  font-size: 14px;
+  line-height: 1.5;
+  height: 100%;
+  background: @cor-fundo;
+  color: @cor-texto;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+a {
+  color: @cor-primaria;
+  text-decoration: none;
+  transition: @transicao-rapida;
+  
+  &:hover {
+    color: @cor-primaria-hover;
+    text-decoration: underline;
+  }
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
 .hidden {
   display: none !important;
 }
 
-// --- Estrutura Principal ---
-.content {
-  position: relative;
-  width: 100%;
-  height: 100%;
+// =====================================================
+// HEADER
+// =====================================================
 
-  > .message {
-    width: 100%;
-    height: 100%;
-    text-align: center;
-    display: table;
-    font-size: 18px;          // AUMENTADO
-    color: darken(@cor-texto, 10%); // ALTERADO
+.editor-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: @header-height;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: @cor-superficie;
+  border-bottom: 1px solid @cor-borda;
+  box-shadow: @sombra-sm;
+  z-index: 100;
+}
 
-    .note {
-      vertical-align: middle;
-      text-align: center;
-      display: table-cell;
-    }
+.header-left,
+.header-center,
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
-    .error {
-      .details {
-        max-width: 500px;
-        font-size: 14px;
-        margin: 20px auto;
-        text-align: left;
-      }
+.header-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
 
-      pre {
-        border: solid 1px @cor-erro;
-        background: lighten(@cor-erro, 35%);
-        padding: 15px;
-        border-radius: 8px; // NOVO: Cantos arredondados
-      }
+// Brand
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, @violet-500, @violet-600);
+  border-radius: @radius-md;
+  color: white;
+}
+
+.brand-text {
+  font-weight: 600;
+  font-size: 16px;
+  color: @cor-texto;
+}
+
+.header-divider {
+  width: 1px;
+  height: 28px;
+  background: @cor-borda;
+  margin: 0 4px;
+}
+
+// Map Info
+.map-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.map-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: @cor-texto;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.map-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: @cor-texto-secundario;
+  
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: @cor-sucesso;
+  }
+  
+  &.unsaved .status-dot {
+    background: @cor-aviso;
+  }
+  
+  &.saving .status-dot {
+    background: @blue-500;
+    animation: pulse 1s infinite;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+// Buttons
+.header-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid @cor-borda;
+  border-radius: @radius-md;
+  background: @cor-superficie;
+  color: @cor-texto;
+  font-size: 13px;
+  font-weight: 500;
+  transition: @transicao-rapida;
+  
+  &:hover {
+    background: @slate-50;
+    border-color: @slate-300;
+  }
+  
+  &:active {
+    transform: scale(0.98);
+  }
+  
+  &.icon-btn {
+    width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+  
+  &.primary {
+    background: linear-gradient(135deg, @violet-500, @violet-600);
+    border-color: transparent;
+    color: white;
+    box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
+    
+    &:hover {
+      background: linear-gradient(135deg, @violet-600, @violet-700);
+      box-shadow: 0 4px 8px rgba(139, 92, 246, 0.4);
     }
   }
+  
+  svg {
+    flex-shrink: 0;
+  }
+  
+  .chevron {
+    margin-left: 2px;
+    opacity: 0.7;
+  }
+}
+
+// Mode Indicator
+.mode-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: @radius-full;
+  font-size: 12px;
+  font-weight: 500;
+  
+  .view-icon { display: block; }
+  .edit-icon { display: none; }
+  
+  // View mode (default)
+  background: @blue-50;
+  color: @blue-600;
+  border: 1px solid @blue-100;
+  
+  &.edit-mode {
+    background: @emerald-50;
+    color: @emerald-600;
+    border-color: @emerald-100;
+    
+    .view-icon { display: none; }
+    .edit-icon { display: block; }
+  }
+}
+
+// Toolbar
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: @slate-100;
+  border-radius: @radius-lg;
+  border: 1px solid @cor-borda;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 24px;
+  background: @slate-300;
+  margin: 0 6px;
+}
+
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: @radius-sm;
+  background: transparent;
+  color: @slate-600;
+  transition: @transicao-rapida;
+  
+  &:hover {
+    background: @cor-superficie;
+    color: @cor-texto;
+  }
+  
+  &:active {
+    background: @slate-200;
+  }
+  
+  &.active {
+    background: @cor-superficie;
+    color: @cor-primaria;
+    box-shadow: @sombra-sm;
+  }
+  
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.zoom-display {
+  min-width: 48px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: @slate-600;
+}
+
+// Dropdown
+.dropdown {
+  position: relative;
+  
+  .dropdown-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 200px;
+    padding: 6px;
+    background: @cor-superficie;
+    border: 1px solid @cor-borda;
+    border-radius: @radius-md;
+    box-shadow: @sombra-xl;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-8px);
+    transition: @transicao;
+    z-index: 200;
+  }
+  
+  &.open .dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: @radius-sm;
+  background: transparent;
+  color: @cor-texto;
+  font-size: 13px;
+  text-align: left;
+  transition: @transicao-rapida;
+  
+  &:hover {
+    background: @slate-50;
+  }
+  
+  svg {
+    color: @slate-500;
+  }
+  
+  .shortcut {
+    margin-left: auto;
+    font-size: 11px;
+    color: @slate-400;
+    font-weight: 500;
+  }
+}
+
+// =====================================================
+// MAIN CONTENT
+// =====================================================
+
+.editor-main {
+  display: flex;
+  height: calc(100vh - @header-height);
+  margin-top: @header-height;
+}
+
+.content {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: @cor-fundo;
+  
+  // Grid pattern
+  background-image: 
+    linear-gradient(to right, @slate-200 1px, transparent 1px),
+    linear-gradient(to bottom, @slate-200 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+// Messages
+.message {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: @cor-fundo;
+  z-index: 5;
+  
+  .note {
+    text-align: center;
+    padding: 40px;
+  }
+  
+  h2 {
+    margin: 20px 0 8px;
+    font-size: 22px;
+    font-weight: 600;
+    color: @cor-texto;
+  }
+  
+  p {
+    font-size: 15px;
+    color: @cor-texto-secundario;
+    margin: 0;
+  }
+}
+
+.intro-illustration,
+.error-illustration {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  height: 120px;
+  margin: 0 auto;
+  border-radius: 50%;
+}
+
+.intro-illustration {
+  background: linear-gradient(135deg, @violet-100, @violet-200);
+  color: @violet-600;
+}
+
+.error-illustration {
+  background: @red-100;
+  color: @red-500;
+}
+
+.error .details {
+  max-width: 500px;
+  margin: 24px auto 0;
+  text-align: left;
+  
+  pre {
+    padding: 16px;
+    background: @red-50;
+    border: 1px solid @red-100;
+    border-radius: @radius-md;
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 12px;
+    color: @red-500;
+    overflow: auto;
+    white-space: pre-wrap;
+  }
+}
+
+// Visibility states
+.content {
   &:not(.with-error) .error,
   &.with-error .intro,
   &.with-diagram .intro {
     display: none;
   }
-
+  
   .canvas {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-  }
-
-  .canvas,
-  &.with-error .canvas {
+    inset: 0;
     visibility: hidden;
   }
-
+  
   &.with-diagram .canvas {
     visibility: visible;
   }
+  
+  &.with-error .canvas {
+    visibility: hidden;
+  }
 }
 
-// --- BOTÕES (Grandes Melhorias) ---
+// =====================================================
+// PROPERTIES PANEL
+// =====================================================
+
+.properties-panel {
+  width: @panel-width;
+  background: @cor-superficie;
+  border-left: 1px solid @cor-borda;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: @transicao-lenta;
+  
+  &.collapsed {
+    width: 0;
+    border-left: none;
+  }
+  
+  &:empty {
+    display: none;
+  }
+  
+  // Estilos do painel de propriedades do bpmn-js
+  > .djs-properties-panel {
+    padding-bottom: 80px;
+    min-height: 100%;
+  }
+}
+
+// =====================================================
+// TOAST NOTIFICATIONS
+// =====================================================
+
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 1000;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 320px;
+  max-width: 420px;
+  padding: 16px;
+  background: @cor-superficie;
+  border-radius: @radius-lg;
+  box-shadow: @sombra-xl;
+  border-left: 4px solid;
+  animation: slideIn 0.3s ease;
+  
+  &.success {
+    border-color: @cor-sucesso;
+    .toast-icon { color: @cor-sucesso; }
+  }
+  
+  &.error {
+    border-color: @cor-erro;
+    .toast-icon { color: @cor-erro; }
+  }
+  
+  &.info {
+    border-color: @blue-500;
+    .toast-icon { color: @blue-500; }
+  }
+  
+  &.warning {
+    border-color: @cor-aviso;
+    .toast-icon { color: @cor-aviso; }
+  }
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.toast-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: @cor-texto;
+  margin-bottom: 4px;
+}
+
+.toast-message {
+  font-size: 13px;
+  color: @cor-texto-secundario;
+  line-height: 1.4;
+}
+
+.toast-close {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: @radius-sm;
+  background: transparent;
+  color: @slate-400;
+  transition: @transicao-rapida;
+  
+  &:hover {
+    background: @slate-100;
+    color: @slate-600;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+// =====================================================
+// BPMN-JS PALETTE (Sobrescrever estilos)
+// =====================================================
+
+.djs-palette {
+  position: absolute !important;
+  left: 16px !important;
+  top: 16px !important;
+  background: @cor-superficie !important;
+  border: 1px solid @cor-borda !important;
+  border-radius: @radius-lg !important;
+  box-shadow: @sombra-lg !important;
+  padding: 8px !important;
+  
+  .separator {
+    margin: 8px 0 !important;
+    border-color: @cor-borda !important;
+  }
+  
+  .entry {
+    width: 36px !important;
+    height: 36px !important;
+    margin: 2px !important;
+    border-radius: @radius-sm !important;
+    transition: @transicao-rapida !important;
+    
+    &:hover {
+      background: @slate-100 !important;
+    }
+    
+    &.highlighted {
+      background: @violet-100 !important;
+    }
+  }
+  
+  .djs-palette-toggle {
+    border-radius: @radius-sm !important;
+  }
+}
+
+// =====================================================
+// BPMN-JS CONTEXT PAD
+// =====================================================
+
+.djs-context-pad {
+  background: @cor-superficie !important;
+  border: 1px solid @cor-borda !important;
+  border-radius: @radius-lg !important;
+  box-shadow: @sombra-lg !important;
+  padding: 4px !important;
+  
+  .entry {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: @radius-sm !important;
+    margin: 2px !important;
+    transition: @transicao-rapida !important;
+    
+    &:hover {
+      background: @slate-100 !important;
+    }
+  }
+}
+
+// =====================================================
+// BPMN-JS POPUP MENU
+// =====================================================
+
+.djs-popup {
+  background: @cor-superficie !important;
+  border: 1px solid @cor-borda !important;
+  border-radius: @radius-lg !important;
+  box-shadow: @sombra-xl !important;
+  padding: 6px !important;
+  
+  .entry {
+    padding: 8px 12px !important;
+    border-radius: @radius-sm !important;
+    transition: @transicao-rapida !important;
+    
+    &:hover {
+      background: @slate-100 !important;
+    }
+  }
+}
+
+// =====================================================
+// BPMN ELEMENTOS CUSTOMIZADOS
+// =====================================================
+
+// Cores dos elementos BPMN
+@cor-tarefa: #fef3c7;
+@cor-tarefa-borda: #fbbf24;
+@cor-tarefa-hover: #fde68a;
+
+@cor-evento-inicio: #d1fae5;
+@cor-evento-inicio-borda: #10b981;
+
+@cor-evento-fim: #fee2e2;
+@cor-evento-fim-borda: #ef4444;
+
+@cor-gateway: #e0e7ff;
+@cor-gateway-borda: #6366f1;
+
+@cor-subprocesso: #f0fdfa;
+@cor-subprocesso-borda: #14b8a6;
+
+#js-canvas {
+  // Tarefas (Tasks)
+  .djs-shape[data-element-id*="Task"] .djs-visual rect,
+  .djs-shape[data-element-id*="Activity"] .djs-visual rect {
+    fill: @cor-tarefa !important;
+    stroke: @cor-tarefa-borda !important;
+    stroke-width: 2px !important;
+    rx: 8px !important;
+    ry: 8px !important;
+  }
+  
+  // Evento de Início
+  .djs-shape[data-element-id*="StartEvent"] .djs-visual circle {
+    fill: @cor-evento-inicio !important;
+    stroke: @cor-evento-inicio-borda !important;
+    stroke-width: 2px !important;
+  }
+  
+  // Evento de Fim
+  .djs-shape[data-element-id*="EndEvent"] .djs-visual circle {
+    fill: @cor-evento-fim !important;
+    stroke: @cor-evento-fim-borda !important;
+    stroke-width: 3px !important;
+  }
+  
+  // Gateways
+  .djs-shape[data-element-id*="Gateway"] .djs-visual polygon {
+    fill: @cor-gateway !important;
+    stroke: @cor-gateway-borda !important;
+    stroke-width: 2px !important;
+  }
+  
+  // Subprocessos
+  .djs-shape[data-element-id*="SubProcess"] .djs-visual rect {
+    fill: @cor-subprocesso !important;
+    stroke: @cor-subprocesso-borda !important;
+    stroke-width: 2px !important;
+    rx: 8px !important;
+    ry: 8px !important;
+  }
+  
+  // Labels
+  .djs-label {
+    font-family: @fonte !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+  }
+  
+  // Seleção
+  .djs-outline {
+    stroke: @cor-primaria !important;
+    stroke-width: 2px !important;
+  }
+  
+  // Conexões
+  .djs-connection .djs-visual path {
+    stroke: @slate-500 !important;
+    stroke-width: 2px !important;
+  }
+  
+  // Pools e Lanes
+  .djs-shape[data-element-id*="Participant"] .djs-visual rect,
+  .djs-shape[data-element-id*="Lane"] .djs-visual rect {
+    fill: @slate-50 !important;
+    stroke: @slate-300 !important;
+    stroke-width: 2px !important;
+  }
+}
+
+// =====================================================
+// PROPERTIES PANEL CUSTOMIZADO
+// =====================================================
+
+.bio-properties-panel {
+  font-family: @fonte !important;
+  font-size: 13px !important;
+  
+  .bio-properties-panel-header {
+    background: @slate-50 !important;
+    border-bottom: 1px solid @cor-borda !important;
+    padding: 12px 16px !important;
+  }
+  
+  .bio-properties-panel-header-label {
+    font-weight: 600 !important;
+    font-size: 14px !important;
+  }
+  
+  .bio-properties-panel-group-header {
+    background: @slate-50 !important;
+    border-bottom: 1px solid @cor-borda !important;
+    padding: 10px 16px !important;
+    font-weight: 600 !important;
+  }
+  
+  .bio-properties-panel-entry {
+    padding: 8px 16px !important;
+    border-bottom: 1px solid @slate-100 !important;
+  }
+  
+  .bio-properties-panel-label {
+    font-weight: 500 !important;
+    color: @slate-600 !important;
+    margin-bottom: 6px !important;
+  }
+  
+  input, select, textarea {
+    border: 1px solid @cor-borda !important;
+    border-radius: @radius-sm !important;
+    padding: 8px 10px !important;
+    font-size: 13px !important;
+    transition: @transicao-rapida !important;
+    
+    &:focus {
+      border-color: @cor-primaria !important;
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1) !important;
+      outline: none !important;
+    }
+  }
+}
+
+// Esconder logo do bpmn.io
+.bjs-powered-by {
+  display: none !important;
+}
+
+// =====================================================
+// RESPONSIVIDADE
+// =====================================================
+
+@media (max-width: 1024px) {
+  .header-center {
+    position: static;
+    transform: none;
+  }
+  
+  .brand-text,
+  .header-btn span {
+    display: none;
+  }
+  
+  .header-btn {
+    padding: 0;
+    width: 36px;
+    justify-content: center;
+  }
+  
+  .properties-panel {
+    position: fixed;
+    right: 0;
+    top: @header-height;
+    height: calc(100vh - @header-height);
+    z-index: 50;
+    box-shadow: @sombra-xl;
+    
+    &.collapsed {
+      transform: translateX(100%);
+      width: @panel-width;
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .header-center {
+    display: none;
+  }
+  
+  .map-info {
+    display: none;
+  }
+}
+
+// =====================================================
+// BOTÃO SALVAR LEGADO (para compatibilidade)
+// =====================================================
+
+.save-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  background: linear-gradient(135deg, @violet-500, @violet-600);
+  border: none;
+  border-radius: @radius-md;
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
+  transition: @transicao-rapida;
+  
+  &:hover {
+    background: linear-gradient(135deg, @violet-600, @violet-700);
+    box-shadow: 0 4px 8px rgba(139, 92, 246, 0.4);
+  }
+  
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+// Mover buttons antigos para se integrar ao novo layout
 .buttons {
   position: fixed;
   bottom: 20px;
   left: 20px;
-  padding: 0;
-  margin: 0;
-  list-style: none;
-  z-index: 20; // NOVO: Garantir que fiquem acima de outros elementos
+  display: none; // Esconder os botões antigos
+}
+// ...existing code...
 
-  > li {
-    display: inline-block;
-    margin-right: 10px;
+// ...existing code...
 
-    > a {
-      // ESTILO COMPLETAMENTE NOVO
-      background: @cor-primaria;
-      color: white;
-      font-weight: 500;
-      border: none;
-      display: inline-block;
-      padding: 10px 18px;
-      border-radius: 8px; // Cantos arredondados
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-      transition: all 0.2s ease-out; // Transição suave
+// =====================================================
+// VIEWER MODE - Desabilitar edição
+// =====================================================
+body.viewer-mode {
+  // Desabilitar cursor de edição no canvas
+  .djs-container {
+    cursor: grab !important;
+    
+    &:active {
+      cursor: grabbing !important;
+    }
+  }
+  
+  // Ocultar palette completamente
+  .djs-palette {
+    display: none !important;
+  }
+  
+  // Desabilitar context-pad (menu de ações ao clicar em elemento)
+  .djs-context-pad {
+    display: none !important;
+  }
+  
+  // Desabilitar popup menu
+  .djs-popup {
+    display: none !important;
+  }
+  
+  // Desabilitar resize handles
+  .djs-resizer {
+    display: none !important;
+  }
+  
+  // Desabilitar bendpoints de conexões
+  .djs-bendpoint,
+  .djs-segment-dragger {
+    display: none !important;
+  }
+  
+  // Desabilitar edição inline de labels
+  .djs-direct-editing-parent,
+  .djs-direct-editing-content {
+    display: none !important;
+    pointer-events: none !important;
+  }
+  
+  // Bloquear interações no canvas
+  .djs-hit-all,
+  .djs-hit-click-stroke {
+    pointer-events: none !important;
+  }
+  
+  // Manter apenas interação para seleção (ver propriedades)
+  .djs-element {
+    cursor: pointer !important;
+  }
+  
+  // Estilo do painel de propriedades no modo view
+  #js-properties-panel {
+    // Desabilitar todos os inputs
+    input, select, textarea {
+      pointer-events: none !important;
+      background-color: #f8f9fa !important;
+      border-color: #e9ecef !important;
+      color: #495057 !important;
+      cursor: default !important;
+      
+      &:focus {
+        outline: none !important;
+        box-shadow: none !important;
+      }
+    }
+    
+    // Desabilitar botões dentro do painel
+    button:not(.bio-properties-panel-group-header-button) {
+      pointer-events: none !important;
+      opacity: 0.5;
+    }
+    
+    // Manter botões de expandir/colapsar grupos funcionando
+    .bio-properties-panel-group-header-button {
+      pointer-events: auto !important;
+      opacity: 1;
+    }
+    
+    // Esconder botões de adicionar/remover
+    .bio-properties-panel-add-entry,
+    .bio-properties-panel-remove-entry,
+    .bio-properties-panel-add-btn,
+    .bio-properties-panel-remove-btn,
+    [data-action="add"],
+    [data-action="remove"] {
+      display: none !important;
+    }
+  }
+}
 
-      // Efeito ao passar o mouse
-      &:hover {
-        transform: translateY(-2px); // Leve animação para cima
-        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
-        background: lighten(@cor-primaria, 5%);
+// Badge de "Somente Leitura" no painel
+body.viewer-mode #js-properties-panel {
+  &::before {
+    content: '👁 Somente Visualização';
+    display: block;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+}
+
+// Indicador de modo
+.mode-indicator {
+  &.view-mode {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    color: white !important;
+    border-color: #059669 !important;
+  }
+  
+  &.edit-mode {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+    color: white !important;
+    border-color: #d97706 !important;
+  }
+}
+
+// Status "viewing"
+.map-status.viewing {
+  .status-dot {
+    background-color: #10b981;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+    animation: pulse 2s infinite;
+  }
+  color: #059669;
+}
+
+// ...existing code...
+// =====================================================
+// VIEWER MODE - Desabilitar edição mas permitir seleção
+// =====================================================
+body.viewer-mode {
+  // Cursor padrão no canvas
+  .djs-container {
+    cursor: default !important;
+  }
+  
+  // Ocultar palette completamente
+  .djs-palette {
+    display: none !important;
+  }
+  
+  // Desabilitar context-pad (menu de ações ao clicar em elemento)
+  .djs-context-pad {
+    display: none !important;
+  }
+  
+  // Desabilitar popup menu
+  .djs-popup {
+    display: none !important;
+  }
+  
+  // Desabilitar resize handles
+  .djs-resizer {
+    display: none !important;
+  }
+  
+  // Desabilitar bendpoints de conexões
+  .djs-bendpoint,
+  .djs-segment-dragger {
+    display: none !important;
+  }
+  
+  // Desabilitar edição inline de labels
+  .djs-direct-editing-parent,
+  .djs-direct-editing-content {
+    display: none !important;
+  }
+  
+  // IMPORTANTE: Manter pointer-events nos elementos para permitir seleção
+  // Apenas mostrar cursor de pointer nos elementos clicáveis
+  .djs-element {
+    cursor: pointer !important;
+    
+    // Permitir clique nos hits para seleção
+    .djs-hit {
+      pointer-events: all !important;
+      cursor: pointer !important;
+    }
+  }
+  
+  // Estilo visual ao passar o mouse sobre elementos
+  .djs-shape:hover .djs-outline,
+  .djs-connection:hover .djs-outline {
+    visibility: visible !important;
+    stroke: @violet-400 !important;
+    stroke-width: 2px !important;
+    stroke-dasharray: 4 !important;
+  }
+  
+  // Estilo do painel de propriedades no modo view
+  #js-properties-panel {
+    // Desabilitar todos os inputs (somente leitura)
+    input, select, textarea {
+      pointer-events: none !important;
+      background-color: @slate-50 !important;
+      border-color: @slate-200 !important;
+      color: @slate-700 !important;
+      cursor: default !important;
+      font-weight: 500 !important;
+      
+      &:focus {
+        outline: none !important;
+        box-shadow: none !important;
+      }
+    }
+    
+    // Desabilitar botões dentro do painel (exceto expandir/colapsar)
+    button:not(.bio-properties-panel-group-header-button):not(.bio-properties-panel-group-header-button-icon) {
+      pointer-events: none !important;
+      opacity: 0.4 !important;
+      cursor: default !important;
+    }
+    
+    // Manter botões de expandir/colapsar grupos funcionando
+    .bio-properties-panel-group-header,
+    .bio-properties-panel-group-header-button,
+    .bio-properties-panel-group-header-button-icon {
+      pointer-events: auto !important;
+      cursor: pointer !important;
+      opacity: 1 !important;
+    }
+    
+    // Esconder botões de adicionar/remover
+    .bio-properties-panel-add-entry,
+    .bio-properties-panel-remove-entry,
+    .bio-properties-panel-add-btn,
+    .bio-properties-panel-remove-btn,
+    [data-action="add"],
+    [data-action="remove"] {
+      display: none !important;
+    }
+    
+    // Melhorar aparência dos valores somente leitura
+    .bio-properties-panel-entry {
+      .bio-properties-panel-input,
+      .bio-properties-panel-textfield input,
+      .bio-properties-panel-select select {
+        background-color: @slate-100 !important;
+        border: 1px solid @slate-200 !important;
+        color: @slate-800 !important;
+        font-weight: 500 !important;
       }
     }
   }
+}
 
-  // Removemos a opacidade e controlamos o estado ativo pela cor
-  a {
-    opacity: 1.0;
-  }
-
-  a.active {
-    background: @cor-destaque;
+// Badge de "Somente Leitura" no painel
+body.viewer-mode #js-properties-panel {
+  &::before {
+    content: '👁 Somente Visualização';
+    display: block;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, @emerald-500 0%, @emerald-600 100%);
     color: white;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); // Sombra mais sutil
-    transform: translateY(-1px);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 }
 
-// --- PAINEL DE PROPRIEDADES (Grandes Melhorias) ---
-#js-properties-panel {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  width: 300px; // AUMENTADO: Mais espaço
-  z-index: 10;
-  border-left: 1px solid @cor-borda;
-  overflow: auto;
-  background: @cor-fundo-painel; // NOVO: Fundo branco
-  box-shadow: -5px 0 20px rgba(0, 0, 0, 0.07); // NOVO: Sombra para destacar
-
-  &:empty {
-    display: none;
-  }
-
-  > .djs-properties-panel {
-    padding-bottom: 70px;
-    min-height:100%;
-  }
-}
-
-// ----------------------------------------------------
-// NOVO: Cores customizadas para Elementos BPMN (v2)
-// ----------------------------------------------------
-
-// Paleta de Cores Sóbrias
-@cor-fundo-atividade: #faee7e;      // Azul muito claro
-@cor-borda-atividade: #a9bcf5;      // Borda azul um pouco mais forte
-
-@cor-fundo-evento-inicio: #ffd000;  // Verde muito claro
-@cor-borda-evento-inicio: #9cd8a6;  // Borda verde um pouco mais forte
-
-@cor-fundo-evento-fim: #fbeae9;     // Vermelho muito claro
-@cor-borda-evento-fim: #f1a8a3;     // Borda vermelha um pouco mais forte
-
-@cor-texto-elemento: #1e1e1e;       // Cor do texto nos elementos (preto suave)
-
-
-// --- Aplicação dos Estilos ---
-
-// Usamos o seletor da DIV principal #js-canvas para aumentar a especificidade
-// e garantir que nossas regras sejam aplicadas.
-
-#js-canvas {
- .djs-shape[data-element-id*="Activity"] .djs-visual rect {
-   fill: @cor-fundo-atividade !important;
-  //  stroke: @cor-borda-atividade !important;
- }
-  
-
-  // Estilo para Atividades (Tasks)
-  .djs-shape[data-element-id*="Task"] .djs-visual rect {
-    fill: @cor-fundo-atividade !important;
-    stroke: @cor-borda-atividade !important;
-  }
-
-  // Estilo para Eventos de Início
-  .djs-shape[data-element-id*="StartEvent"] .djs-visual circle {
-    fill: @cor-fundo-evento-inicio !important;
-    // stroke: @cor-borda-evento-inicio !important;
-  }
-
-  // Estilo para Eventos de Fim
-  .djs-shape[data-element-id*="EndEvent"] .djs-visual circle {
-    fill: @cor-fundo-evento-fim !important;
-    stroke: @cor-borda-evento-fim !important;
+// Indicador de modo
+.mode-indicator {
+  &.view-mode {
+    background: linear-gradient(135deg, @emerald-500 0%, @emerald-600 100%) !important;
+    color: white !important;
+    border-color: @emerald-600 !important;
   }
   
-  // Estilo para o texto (label) dos elementos
-  .djs-shape .djs-label {
-    fill: @cor-texto-elemento !important;
+  &.edit-mode {
+    background: linear-gradient(135deg, @amber-500 0%, #d97706 100%) !important;
+    color: white !important;
+    border-color: #d97706 !important;
   }
 }
 
-// .djs-shape[data-element-id*="Activity"] .djs-visual rect {
-//   fill: @cor-fundo-atividade !important;
-//   stroke: @cor-borda-atividade !important;
-// }
+// Status "viewing"
+.map-status.viewing {
+  .status-dot {
+    background-color: @emerald-500;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.3);
+    animation: pulse 2s infinite;
+  }
+  color: @emerald-600;
+}
+
+// Dica visual para clicar nos elementos no modo view
+body.viewer-mode .content::after {
+  content: 'Clique em uma atividade para ver seus metadados';
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  background: rgba(30, 41, 59, 0.9);
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: @radius-full;
+  opacity: 0;
+  animation: fadeInOut 5s ease forwards;
+  pointer-events: none;
+  z-index: 100;
+}
+
+@keyframes fadeInOut {
+  0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  10% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
+}

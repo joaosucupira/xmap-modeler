@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Search, Filter, Clock, TrendingUp, X, Loader2, FileText, Settings, Tag, ExternalLink, SlidersHorizontal } from "lucide-react";
+import { Search, Filter, Clock, TrendingUp, X, Loader2, FileText, Settings, Tag, ExternalLink, SlidersHorizontal, FolderTree, Map } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +35,8 @@ interface Metadado {
   lgpd: string;
   id_processo: number; // ID do MAPA
   id_atividade: string;
+  mapa_titulo?: string;      // Título do mapa
+  processo_nome?: string;    // Nome do processo
 }
 
 interface SearchResult {
@@ -347,24 +349,30 @@ export const SearchBar = () => {
                 <Label className="text-sm font-semibold">Mapas</Label>
                 {availableMapas.length > 0 ? (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {availableMapas.map((mapa) => (
-                      <div key={mapa} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`mapa-${mapa}`}
-                          checked={filtros.mapas.includes(mapa)}
-                          onCheckedChange={() => toggleMapaFilter(mapa)}
-                        />
-                        <label
-                          htmlFor={`mapa-${mapa}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                        >
-                          Mapa #{mapa}
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            ({results.filter(r => r.id_processo === mapa).length})
-                          </span>
-                        </label>
-                      </div>
-                    ))}
+                    {availableMapas.map((mapa) => {
+                      // Encontrar o título do mapa nos resultados
+                      const mapaInfo = results.find(r => r.id_processo === mapa);
+                      const mapaTitulo = mapaInfo?.mapa_titulo;
+                      
+                      return (
+                        <div key={mapa} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`mapa-${mapa}`}
+                            checked={filtros.mapas.includes(mapa)}
+                            onCheckedChange={() => toggleMapaFilter(mapa)}
+                          />
+                          <label
+                            htmlFor={`mapa-${mapa}`}
+                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                          >
+                            {mapaTitulo || `Mapa #${mapa}`}
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              ({results.filter(r => r.id_processo === mapa).length})
+                            </span>
+                          </label>
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">
@@ -429,17 +437,20 @@ export const SearchBar = () => {
               <X className="h-3 w-3 ml-1" />
             </Badge>
           ))}
-          {filtros.mapas.map((mapa) => (
-            <Badge 
-              key={`mapa-${mapa}`} 
-              variant="secondary"
-              className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
-              onClick={() => toggleMapaFilter(mapa)}
-            >
-              Mapa: #{mapa}
-              <X className="h-3 w-3 ml-1" />
-            </Badge>
-          ))}
+          {filtros.mapas.map((mapa) => {
+            const mapaInfo = results.find(r => r.id_processo === mapa);
+            return (
+              <Badge 
+                key={`mapa-${mapa}`} 
+                variant="secondary"
+                className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+                onClick={() => toggleMapaFilter(mapa)}
+              >
+                Mapa: {mapaInfo?.mapa_titulo || `#${mapa}`}
+                <X className="h-3 w-3 ml-1" />
+              </Badge>
+            );
+          })}
           <Button 
             variant="ghost" 
             size="sm" 
@@ -512,6 +523,8 @@ export const SearchBar = () => {
             </div>
           </div>
 
+       
+
           <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
             {filteredResults.map((metadado) => (
               <Card 
@@ -520,31 +533,52 @@ export const SearchBar = () => {
                 onClick={() => handleMetadatoClick(metadado)}
               >
                 <CardHeader className="pb-3">
+                  {/* Breadcrumb: Processo → Mapa (em destaque no topo) */}
+                  {(metadado.processo_nome || metadado.mapa_titulo) && (
+                    <div className="flex flex-wrap items-center gap-2 mb-3 pb-3 border-b border-dashed border-slate-200">
+                      {metadado.processo_nome && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-100 hover:bg-violet-200 rounded-lg transition-colors">
+                          <FolderTree className="h-4 w-4 text-violet-600" />
+                          <span className="text-sm font-bold text-violet-700">{metadado.processo_nome}</span>
+                        </div>
+                      )}
+                      {metadado.processo_nome && metadado.mapa_titulo && (
+                        <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      )}
+                      {metadado.mapa_titulo && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 rounded-lg transition-colors">
+                          <Map className="h-4 w-4 text-emerald-600" />
+                          <span className="text-sm font-bold text-emerald-700">{metadado.mapa_titulo}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
                   <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className="p-2 bg-green-100 rounded-lg flex-shrink-0 group-hover:bg-green-200 transition-colors">
-                        <Settings className="h-5 w-5 text-green-600" />
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div className="p-2.5 bg-amber-100 rounded-lg flex-shrink-0 group-hover:bg-amber-200 transition-colors">
+                        <Settings className="h-5 w-5 text-amber-600" />
                       </div>
                       <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground mb-1 uppercase tracking-wide font-medium">Atividade</p>
                         <CardTitle 
-                          className="text-base leading-tight group-hover:text-primary transition-colors"
+                          className="text-lg leading-tight group-hover:text-primary transition-colors"
                           dangerouslySetInnerHTML={{
                             __html: highlightText(metadado.nome, query)
                           }}
                         />
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <Tag className="h-3 w-3" />
+                          ID: {metadado.id_atividade}
+                        </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="ml-2 flex-shrink-0">
-                        Mapa: {metadado.id_processo}
-                      </Badge>
                       <ExternalLink className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   </div>
-                  <CardDescription className="flex items-center gap-2 mt-2">
-                    <Tag className="h-3 w-3" />
-                    Atividade: {metadado.id_atividade}
-                  </CardDescription>
                 </CardHeader>
                 
                 <CardContent className="space-y-3">
@@ -581,7 +615,7 @@ export const SearchBar = () => {
 
                   <div className="pt-2 border-t text-xs text-muted-foreground flex items-center justify-between">
                     <span>Metadado #{metadado.id}</span>
-                    <span className="opacity-0 group-hover:opacity-100 transition-opacity text-primary">
+                    <span className="opacity-0 group-hover:opacity-100 transition-opacity text-primary font-medium">
                       Clique para abrir o mapa →
                     </span>
                   </div>
@@ -589,6 +623,7 @@ export const SearchBar = () => {
               </Card>
             ))}
           </div>
+
         </Card>
       )}
 

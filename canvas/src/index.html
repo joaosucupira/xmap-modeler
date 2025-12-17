@@ -1,54 +1,148 @@
 <!DOCTYPE html>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap">
-<html>
+<html lang="pt-BR">
 <head>
-  <title>bpmn-js-properties-panel extension demo</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>XMAP - Editor BPMN</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="content" id="js-drop-zone">
-
-    <div class="message intro">
-      <div class="note">
-        Drop BPMN diagram from your desktop or <a id="js-create-diagram" href>create a new diagram</a> to get started.
+  <!-- ========== HEADER ========== -->
+  <header class="editor-header">
+    <div class="header-left">
+      <button class="header-btn icon-btn" id="btn-back" title="Voltar para XMAP">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+      </button>
+      
+      <div class="header-brand">
+        <div class="brand-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+        </div>
+        <span class="brand-text">XMAP Editor</span>
+      </div>
+      
+      <div class="header-divider"></div>
+      
+      <div class="map-info">
+        <span class="map-title" id="map-title">Novo Diagrama</span>
+        <span class="map-status" id="map-status">
+          <span class="status-dot"></span>
+          Pronto
+        </span>
       </div>
     </div>
 
-    <div class="message error">
-      <div class="note">
-        <p>Ooops, we could not display the BPMN 2.0 diagram.</p>
-
-        <div class="details">
-          <span>cause of the problem</span>
-          <pre></pre>
+    <div class="header-center">
+      <div class="toolbar">
+        <div class="toolbar-group" id="edit-tools">
+          <button class="toolbar-btn" id="btn-undo" title="Desfazer (Ctrl+Z)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+          </button>
+          <button class="toolbar-btn" id="btn-redo" title="Refazer (Ctrl+Y)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
+          </button>
+        </div>
+        
+        <div class="toolbar-divider"></div>
+        
+        <div class="toolbar-group">
+          <button class="toolbar-btn" id="btn-zoom-out" title="Diminuir Zoom">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/></svg>
+          </button>
+          <span class="zoom-display" id="zoom-level">100%</span>
+          <button class="toolbar-btn" id="btn-zoom-in" title="Aumentar Zoom">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
+          </button>
+          <button class="toolbar-btn" id="btn-zoom-fit" title="Ajustar à Tela">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect width="10" height="8" x="7" y="8" rx="1"/></svg>
+          </button>
+        </div>
+        
+        <div class="toolbar-divider" id="panel-divider"></div>
+        
+        <div class="toolbar-group" id="panel-toggle-group">
+          <button class="toolbar-btn active" id="btn-toggle-panel" title="Mostrar/Ocultar Propriedades">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/></svg>
+          </button>
         </div>
       </div>
     </div>
 
-    <div class="canvas" id="js-canvas"></div>
-    <div id="js-properties-panel"></div>
-  </div>
+    <div class="header-right">
+      <div class="mode-indicator" id="mode-indicator">
+        <svg class="mode-icon view-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        <svg class="mode-icon edit-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+        <span id="mode-text">Visualização</span>
+      </div>
+      
+      <button class="header-btn primary" id="btn-save" title="Salvar (Ctrl+S)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        <span>Salvar</span>
+      </button>
+      
+      <div class="dropdown" id="export-dropdown">
+        <button class="header-btn" id="btn-export">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          <span>Exportar</span>
+          <svg class="chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="dropdown-menu">
+          <button class="dropdown-item" id="js-download-diagram">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span>Diagrama BPMN</span>
+            <span class="shortcut">.bpmn</span>
+          </button>
+          <button class="dropdown-item" id="js-download-svg">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+            <span>Imagem SVG</span>
+            <span class="shortcut">.svg</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
 
-  <ul class="buttons">
-    <li>
-      download
-    </li>
-    <li>
-      <a id="js-download-diagram" href title="download BPMN diagram">
-        BPMN diagram
-      </a>
-    </li>
-    <li>
-      <a id="js-download-svg" href title="download as SVG image">
-        SVG image
-      </a>
-    </li>
-    <li>
-      <a id="return-to-start" href="http://localhost:3000/home" title="return to start page">
-        Voltar
-      </a>
-  
-    </li>
-  </ul>
+  <!-- ========== MAIN CONTENT ========== -->
+  <main class="editor-main">
+    <div class="content" id="js-drop-zone">
+      <!-- Mensagem de Introdução -->
+      <div class="message intro">
+        <div class="note">
+          <div class="intro-illustration">
+            <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+          </div>
+          <h2>Arraste um diagrama BPMN aqui</h2>
+          <p>ou <a id="js-create-diagram" href="#">crie um novo diagrama</a> para começar</p>
+        </div>
+      </div>
+
+      <!-- Mensagem de Erro -->
+      <div class="message error">
+        <div class="note">
+          <div class="error-illustration">
+            <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+          </div>
+          <h2>Ops! Algo deu errado</h2>
+          <p>Não foi possível exibir o diagrama BPMN 2.0</p>
+          <div class="details">
+            <pre></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Canvas BPMN -->
+      <div class="canvas" id="js-canvas"></div>
+    </div>
+
+    <!-- Painel de Propriedades -->
+    <aside class="properties-panel" id="js-properties-panel"></aside>
+  </main>
+
+  <!-- ========== TOAST CONTAINER ========== -->
+  <div class="toast-container" id="toast-container"></div>
 
   <script src="app.js"></script>
+</body>
 </html>
