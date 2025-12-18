@@ -1,24 +1,22 @@
-> Extending the properties panel changed significantly with `bpmn-js-properties-panel>=1`. For the `0.x` version of the library, check out [the old version of this example](https://github.com/bpmn-io/bpmn-js-examples/tree/b20919ac2231abf3df45b9dc9a2561010009b4a2/properties-panel-extension).
+> A extensão do painel de propriedades mudou significativamente a partir do `bpmn-js-properties-panel>=1`. Para a versão `0.x` da biblioteca, confira [a versão antiga deste exemplo](https://github.com/bpmn-io/bpmn-js-examples/tree/b20919ac2231abf3df45b9dc9a2561010009b4a2/properties-panel-extension).
 
+# Exemplo de Extensão do Painel de Propriedades
 
-# Properties Panel Extension Example
+Este exemplo mostra como estender o [bpmn-js-properties-panel](https://github.com/bpmn-io/bpmn-js-properties-panel) com propriedades personalizadas.
 
-This example shows how to extend the [bpmn-js-properties-panel](https://github.com/bpmn-io/bpmn-js-properties-panel) with custom properties.
+![Screenshot da extensão do painel de propriedades](./docs/screenshot.png "Screenshot da extensão do painel de propriedades")
 
-![properties panel extension screenshot](./docs/screenshot.png "Screenshot of the properties panel extension example")
+## Sobre
 
+> Se precisar de mais informações sobre configuração, veja primeiro o [exemplo básico de propriedades](../properties-panel).
 
-## About
+Neste exemplo, estendemos o painel de propriedades para permitir a edição da propriedade `magic:spell` em todos os eventos de início. Para isso, seguimos os seguintes passos:
 
-> If you need more information about setting up take look at the [basic properties example](../properties-panel) first.
+* Adicionar um grupo chamado "Black Magic" para conter a propriedade
+* Adicionar um campo de texto "spell" a esse grupo
+* Criar uma nova extensão moddle
 
-In this example we extend the properties panel to allow editing a `magic:spell` property on all start events. To achieve that we will walk through the following steps:
-
-* Add a group called "Black Magic" to contain the property
-* Add a "spell" text input field to this group
-* Create a new moddle extension
-
-The property `magic:spell` will be persisted as an extension as part of the BPMN 2.0 document:
+A propriedade `magic:spell` será persistida como uma extensão no documento BPMN 2.0:
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -30,22 +28,20 @@ The property `magic:spell` will be persisted as an extension as part of the BPMN
 </bpmn2:definitions>
 ```
 
+Vamos detalhar todos os passos necessários.
 
-Let us look into all the necessary steps in detail.
+### Criando um Properties Provider
 
+O primeiro passo para uma propriedade personalizada é criar seu próprio `PropertiesProvider`.
+O provider define quais propriedades estão disponíveis e como são organizadas no painel usando abas, grupos e elementos de entrada.
 
-### Create a Properties Provider
-
-The first step to a custom property is to create your own `PropertiesProvider`.
-The provider defines which properties are available and how they are organized in the panel using tabs, groups and input elements.
-
-We created the [`MagicPropertiesProvider`](src/provider/magic/MagicPropertiesProvider.js) which exposes the "magic" group on top of the existing BPMN properties. Note that we make sure that the group is shown only if a start event is selected.
+Criamos o [`MagicPropertiesProvider`](src/provider/magic/MagicPropertiesProvider.js), que expõe o grupo "magic" acima das propriedades BPMN existentes. Note que garantimos que o grupo só aparece se um evento de início estiver selecionado.
 
 ```javascript
 function MagicPropertiesProvider(propertiesPanel, translate) {
 
-  // Register our custom magic properties provider.
-  // Use a lower priority to ensure it is loaded after the basic BPMN properties.
+  // Registra nosso provider customizado.
+  // Use prioridade baixa para garantir que seja carregado após as propriedades básicas do BPMN.
   propertiesPanel.registerProvider(LOW_PRIORITY, this);
 
   ...
@@ -56,7 +52,7 @@ function MagicPropertiesProvider(propertiesPanel, translate) {
 
     return function(groups) {
 
-      // Add the "magic" group
+      // Adiciona o grupo "magic"
       if(is(element, 'bpmn:StartEvent')) {
         groups.push(createMagicGroup(element, translate));
       }
@@ -67,21 +63,19 @@ function MagicPropertiesProvider(propertiesPanel, translate) {
 }
 ```
 
+### Definindo um Grupo
 
-### Define a Group
-
-As part of the properties provider we define the magic group:
+Como parte do provider, definimos o grupo magic:
 
 ```javascript
-// Import your custom property entries.
-// The entry is a text input field with logic attached to create,
-// update and delete the "spell" property.
+// Importe suas entradas customizadas.
+// A entrada é um campo de texto com lógica para criar, atualizar e deletar a propriedade "spell".
 import spellProps from './parts/SpellProps';
 
-// Create the custom magic group
+// Cria o grupo customizado magic
 function createMagicGroup(element, translate) {
 
-  // create a group called "Magic properties".
+  // cria um grupo chamado "Magic properties".
   const magicGroup = {
     id: 'magic',
     label: translate('Magic properties'),
@@ -93,10 +87,9 @@ function createMagicGroup(element, translate) {
 }
 ```
 
+### Definindo uma Entrada
 
-### Define an Entry
-
-The "spell" entry is defined in [`SpellProps`](src/provider/magic/parts/SpellProps.js). We reuse [`TextFieldEntry`](https://github.com/bpmn-io/properties-panel/blob/main/src/components/entries/TextField.js) to create a text field for the property. The `component` needs to be a Preact component. We use [`htm`](https://github.com/developit/htm) to create a Preact component from a tagged template.
+A entrada "spell" é definida em [`SpellProps`](src/provider/magic/parts/SpellProps.js). Reutilizamos [`TextFieldEntry`](https://github.com/bpmn-io/properties-panel/blob/main/src/components/entries/TextField.js) para criar um campo de texto para a propriedade. O `component` precisa ser um componente Preact. Usamos [`htm`](https://github.com/developit/htm) para criar o componente via template.
 
 ```javascript
 import { html } from 'htm/preact';
@@ -146,11 +139,11 @@ function Spell(props) {
 }
 ```
 
-You can look into the [`entries`](https://github.com/bpmn-io/properties-panel/blob/main/src/components/entries/index.js) to find many other useful reusable form input components.
+Você pode consultar os [`entries`](https://github.com/bpmn-io/properties-panel/blob/main/src/components/entries/index.js) para encontrar outros componentes de formulário reutilizáveis.
 
-### Create a Moddle Extension
+### Criando uma Extensão Moddle
 
-The second step to create a custom property is to create a moddle extension so that moddle is aware of our new property "spell". This is important for moddle to write and read BPMN XML containing custom properties. The extension is basically a json descriptor file [magic.json](src/descriptors/magic.json) containing a definition of `bpmn:StartEvent#spell`:
+O segundo passo é criar uma extensão moddle para que o moddle reconheça a nova propriedade "spell". Isso é importante para ler e gravar o XML BPMN com propriedades customizadas. A extensão é basicamente um arquivo json [magic.json](src/descriptors/magic.json) contendo a definição de `bpmn:StartEvent#spell`:
 
 ```javascript
 {
@@ -179,9 +172,9 @@ The second step to create a custom property is to create a moddle extension so t
 }
 ```
 
-In this file we define the new type `BewitchesStartEvent` which extends the type `bpmn:StartEvent` and adds the "spell" property as an attribute to it.
+Neste arquivo, definimos o novo tipo `BewitchedStartEvent`, que estende `bpmn:StartEvent` e adiciona a propriedade "spell" como atributo.
 
-**Please note**: It is necessary to define in the descriptor which element you want to extend. If you want the property to be valid for all bpmn elements, you can extend `bpmn:BaseElement`:
+**Atenção:** É necessário definir no descriptor qual elemento você quer estender. Se quiser que a propriedade seja válida para todos os elementos BPMN, estenda `bpmn:BaseElement`:
 
 ```javascript
 ...
@@ -196,10 +189,9 @@ In this file we define the new type `BewitchesStartEvent` which extends the type
 },
 ```
 
+### Integrando Tudo
 
-### Plugging Everything together
-
-To ship our custom extension with the properties panel we have to wire both the moddle extension and the properties provider when creating the modeler.
+Para usar a extensão customizada com o painel de propriedades, é preciso conectar tanto a extensão moddle quanto o provider ao criar o modeler.
 
 ```javascript
 import BpmnModeler from 'bpmn-js/lib/Modeler';
@@ -228,22 +220,19 @@ const bpmnModeler = new BpmnModeler({
 });
 ```
 
+## Executando o Exemplo
 
-## Running the Example
-
-Install all required dependencies:
+Instale todas as dependências necessárias:
 
 ```
 npm install
 ```
 
-Build and run the project
+Compile e execute o projeto:
 
 ```
 npm start
 ```
 
 
-## License
 
-MIT
